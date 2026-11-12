@@ -32,6 +32,7 @@ jobs:
 
   slurm:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: A one-machine SLURM
@@ -42,6 +43,7 @@ jobs:
           printf '%s\n' "ClusterName=ci" "SlurmctldHost=$H" "AuthType=auth/munge" "ProctrackType=proctrack/linuxproc" \
             "SlurmdSpoolDir=/var/spool/slurmd" "StateSaveLocation=/var/spool/slurmctld" "SelectType=select/cons_tres" \
             "SelectTypeParameters=CR_Core_Memory" "ReturnToService=2" \
+            "SlurmctldLogFile=/var/log/slurm/slurmctld.log" "SlurmdLogFile=/var/log/slurm/slurmd.log" \
             "NodeName=$H CPUs=$C RealMemory=$M State=UNKNOWN" "PartitionName=debug Nodes=$H Default=YES MaxTime=INFINITE State=UP" \
             | sudo tee /etc/slurm/slurm.conf
           sudo chown slurm: /var/spool/slurmd /var/spool/slurmctld /var/log/slurm
@@ -50,7 +52,15 @@ jobs:
       - name: Install
         run: bash install.sh --prefix "$RUNNER_TEMP/qc"
       - name: Run through SLURM and check every command
+        timeout-minutes: 30
         run: bash tests/workflow/test_commands.sh "$RUNNER_TEMP/qc" docker "$RUNNER_TEMP/w" fwd_umi slurm
+      - name: What SLURM and Nextflow were doing
+        if: failure() || cancelled()
+        run: |
+          squeue -a || true; sacct -a --format=JobID,JobName%40,State,ExitCode,ReqMem,ReqCPUS,NodeList || true
+          sudo tail -40 /var/log/slurm/slurmctld.log /var/log/slurm/slurmd.log || true
+          tail -60 "$RUNNER_TEMP/w/out/run/nextflow.log" || true
+          tail -60 "$RUNNER_TEMP/w/out/run/.nextflow.log" "$RUNNER_TEMP/w/run.out" 2>/dev/null || true
       - name: Keep the run record if it failed
         if: failure()
         uses: actions/upload-artifact@v4
