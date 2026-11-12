@@ -1,5 +1,6 @@
 {
   "title": "quantseq-counts settings",
+  "package_version": "0.1.0",
   "settings": {
     "package_version": {
       "type": "string",

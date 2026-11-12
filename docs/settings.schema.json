@@ -1,0 +1,263 @@
+{
+  "title": "quantseq-counts settings",
+  "package_version": "0.1.0",
+  "settings": {
+    "package_version": {
+      "type": "string",
+      "default": null,
+      "help": "Version of quantseq-counts that wrote these settings; a run refuses another version unless told to accept it.",
+      "group": "basic",
+      "required": true
+    },
+    "run_name": {
+      "type": "string",
+      "default": null,
+      "help": "Short name of this run, used in the report (letters, digits, - and _).",
+      "group": "basic",
+      "required": true,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "fastq_dir": {
+      "type": "path",
+      "default": null,
+      "help": "Folder on the server holding the FASTQ files.",
+      "group": "basic",
+      "required": true
+    },
+    "samples": {
+      "type": "path",
+      "default": null,
+      "help": "The sample list (samples.csv: sample, fastq, optional group).",
+      "group": "basic",
+      "required": true
+    },
+    "outdir": {
+      "type": "path",
+      "default": null,
+      "help": "Folder where the results of this run are written; it must not hold a finished run.",
+      "group": "basic",
+      "required": true
+    },
+    "library": {
+      "type": "string",
+      "default": "fwd_umi",
+      "help": "Library type: QuantSeq FWD with UMI (fwd_umi) or without UMI (fwd_no_umi).",
+      "group": "basic",
+      "enum": [
+        "fwd_umi",
+        "fwd_no_umi"
+      ]
+    },
+    "reference": {
+      "type": "string",
+      "default": "ensembl_115",
+      "help": "Human reference: Ensembl 115 downloaded by the package (ensembl_115) or your own files (custom).",
+      "group": "basic",
+      "enum": [
+        "ensembl_115",
+        "custom"
+      ]
+    },
+    "fasta": {
+      "type": "path",
+      "default": null,
+      "help": "Genome FASTA of a custom human reference.",
+      "group": "basic",
+      "required_if": {
+        "reference": "custom"
+      }
+    },
+    "gtf": {
+      "type": "path",
+      "default": null,
+      "help": "Gene annotation (GTF) of a custom human reference.",
+      "group": "basic",
+      "required_if": {
+        "reference": "custom"
+      }
+    },
+    "reference_dir": {
+      "type": "path",
+      "default": null,
+      "help": "Folder where the reference and its STAR index are kept and reused between runs.",
+      "group": "basic",
+      "required": true
+    },
+    "engine": {
+      "type": "string",
+      "default": "apptainer",
+      "help": "Container engine: apptainer (usual on servers without root), udocker, or docker.",
+      "group": "basic",
+      "enum": [
+        "apptainer",
+        "udocker",
+        "docker"
+      ]
+    },
+    "executor": {
+      "type": "string",
+      "default": "local",
+      "help": "Where the jobs run: on this server (local) or through a SLURM queue (slurm).",
+      "group": "basic",
+      "enum": [
+        "local",
+        "slurm"
+      ]
+    },
+    "max_cpus": {
+      "type": "integer",
+      "default": 16,
+      "help": "Most cores the run may use at once on this server.",
+      "group": "basic",
+      "minimum": 1
+    },
+    "max_memory": {
+      "type": "string",
+      "default": "160 GB",
+      "help": "Most memory the run may use at once on this server (for example 64 GB).",
+      "group": "basic",
+      "pattern": "^[0-9]+ ?(GB|MB|TB)$"
+    },
+    "slurm_queue": {
+      "type": "string",
+      "default": null,
+      "help": "SLURM partition (queue) to submit to.",
+      "group": "basic",
+      "required_if": {
+        "executor": "slurm"
+      }
+    },
+    "slurm_account": {
+      "type": "string",
+      "default": null,
+      "help": "SLURM account to charge, if your cluster asks for one.",
+      "group": "basic"
+    },
+    "udocker_dir": {
+      "type": "path",
+      "default": null,
+      "help": "Folder where udocker keeps its images (empty: inside the installation).",
+      "group": "advanced"
+    },
+    "umi_pattern": {
+      "type": "string",
+      "default": "^(?P<umi_1>.{6})(?P<discard_1>.{4}).*",
+      "help": "UMI-tools regular expression: 6 UMI bases, then 4 spacer bases discarded.",
+      "group": "advanced"
+    },
+    "dedup_algo": {
+      "type": "string",
+      "default": "dir",
+      "help": "UMICollapse grouping algorithm (dir = directional, as UMI-tools).",
+      "group": "advanced",
+      "enum": [
+        "dir",
+        "adj",
+        "cc"
+      ]
+    },
+    "trim_adapter": {
+      "type": "string",
+      "default": "AGATCGGAAGAGC",
+      "help": "Adapter sequence removed by Trim Galore.",
+      "group": "advanced",
+      "pattern": "^[ACGTN]+$"
+    },
+    "star_extra_args": {
+      "type": "string",
+      "default": "--outFilterMismatchNoverLmax 0.1 --clip3pAdapterSeq AAAAAAAA",
+      "help": "Extra STAR arguments: mismatch limit and poly(A) clipping, as Lexogen recommends.",
+      "group": "advanced"
+    },
+    "star_threads": {
+      "type": "integer_or_null",
+      "default": null,
+      "help": "Threads for STAR (empty: the cores given to the alignment task).",
+      "group": "advanced",
+      "minimum": 1
+    },
+    "strand": {
+      "type": "string",
+      "default": "forward",
+      "help": "Strand of the reads relative to the gene; QuantSeq FWD reads are forward.",
+      "group": "advanced",
+      "enum": [
+        "forward",
+        "reverse",
+        "unstranded"
+      ],
+      "warn_if": [
+        "reverse",
+        "unstranded"
+      ],
+      "warning": "QuantSeq FWD reads are on the gene's strand: counting them as reverse or unstranded gives wrong counts."
+    },
+    "count_multimappers": {
+      "type": "boolean",
+      "default": false,
+      "help": "Count reads that align to several places (featureCounts -M).",
+      "group": "advanced",
+      "warn_if": [
+        true
+      ],
+      "warning": "Counting reads that align to several places adds reads whose gene is uncertain; the standard drops them."
+    },
+    "dedup_without_umi": {
+      "type": "boolean",
+      "default": false,
+      "help": "No-UMI libraries only: remove duplicates by position alone.",
+      "group": "advanced",
+      "warn_if": [
+        true
+      ],
+      "warning": "Without UMIs, reads at the same position are often different molecules in a 3' library: removing them by position loses real counts."
+    },
+    "deterministic_sort": {
+      "type": "boolean",
+      "default": true,
+      "help": "Sort alignments by read name, then by position, before deduplication, so reruns give identical counts.",
+      "group": "advanced",
+      "warn_if": [
+        false
+      ],
+      "warning": "Without the name-then-position sort, the read kept among duplicates follows thread scheduling: reruns can differ by a few counts."
+    },
+    "keep_bams": {
+      "type": "boolean",
+      "default": false,
+      "help": "Keep the alignment files (BAM) in the output folder.",
+      "group": "advanced"
+    },
+    "keep_trimmed_fastq": {
+      "type": "boolean",
+      "default": false,
+      "help": "Keep the trimmed reads in the output folder (used by the release check).",
+      "group": "advanced"
+    },
+    "min_trimmed_reads": {
+      "type": "integer",
+      "default": 10000,
+      "help": "Libraries with fewer reads after trimming are not aligned and are reported as excluded.",
+      "group": "advanced",
+      "minimum": 0
+    },
+    "skip_qualimap": {
+      "type": "boolean",
+      "default": false,
+      "help": "Skip Qualimap (alignment quality report).",
+      "group": "advanced"
+    },
+    "skip_rseqc": {
+      "type": "boolean",
+      "default": false,
+      "help": "Skip RSeQC (read distribution and other checks).",
+      "group": "advanced"
+    },
+    "skip_dupradar": {
+      "type": "boolean",
+      "default": false,
+      "help": "Skip dupRadar (duplication against expression).",
+      "group": "advanced"
+    }
+  }
+}
