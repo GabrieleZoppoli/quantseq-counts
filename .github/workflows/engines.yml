@@ -43,9 +43,9 @@ jobs:
         run: |
           sudo apt-get update -q && sudo apt-get install -y -q slurm-wlm munge
           H=$(hostname -s); C=$(nproc); M=$(( $(free -m | awk '/Mem:/ {print $2}') - 1024 ))
-          sudo mkdir -p /etc/slurm /var/spool/slurmd /var/spool/slurmctld /var/log/slurm
+          sudo mkdir -p /etc/slurm /tmp/slurmd /var/spool/slurmctld /var/log/slurm
           printf '%s\n' "ClusterName=ci" "SlurmctldHost=$H" "AuthType=auth/munge" "ProctrackType=proctrack/linuxproc" \
-            "SlurmdSpoolDir=/var/spool/slurmd" "StateSaveLocation=/var/spool/slurmctld" "SelectType=select/cons_tres" \
+            "SlurmdSpoolDir=/tmp/slurmd" "StateSaveLocation=/var/spool/slurmctld" "SelectType=select/cons_tres" \
             "SelectTypeParameters=CR_Core_Memory" "ReturnToService=2" \
             "SlurmctldLogFile=/var/log/slurm/slurmctld.log" "SlurmdLogFile=/var/log/slurm/slurmd.log" \
             "TaskPlugin=task/none" "JobAcctGatherType=jobacct_gather/none" "MpiDefault=none" "SlurmdUser=root" \
@@ -53,7 +53,7 @@ jobs:
             "SchedulerType=sched/builtin" "PriorityType=priority/basic" \
             "NodeName=$H CPUs=$C RealMemory=$M State=UNKNOWN" "PartitionName=debug Nodes=$H Default=YES MaxTime=INFINITE State=UP" \
             | sudo tee /etc/slurm/slurm.conf
-          sudo chown slurm: /var/spool/slurmd /var/spool/slurmctld /var/log/slurm
+          sudo chown slurm: /var/spool/slurmctld /var/log/slurm
           sudo systemctl start munge && sudo systemctl start slurmctld && sudo systemctl start slurmd
           sleep 5 && sinfo
       - name: Install
