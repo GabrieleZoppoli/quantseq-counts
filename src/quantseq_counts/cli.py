@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import __version__, launch
+from . import __version__, bugreport, launch, update
 from . import samples as sm
 from . import settings as st
 
@@ -175,8 +175,45 @@ def cmd_run(args, ask) -> int:
         return OK
     launch.write_run_files(s, samples_file, run_dir, mounts)
     env = launch.engine_env(s, run_dir, install)
+    procs = launch.inspect_processes(s, run_dir, install, env)
+    launch.write_containers(procs, run_dir)
+    if s["engine"] == "udocker":
+        print("Pulling and checking the container images (once per installation; this can take a while)")
+        failed = launch.udocker_pull(sorted({c for _p, c in procs if c}), env, run_dir)
+        if failed:
+            _err("These images could not be pulled or checked (see " + str(run_dir / "images.log") + "):")
+            for f in failed:
+                _err("  " + f)
+            return CHECK_FAILED
+    if args.foreground:
+        rc = launch.run_foreground(argv, env, run_dir)
+        print(f"Nextflow ended with exit status {rc} (log: {run_dir / 'nextflow.log'})")
+        return rc
     pid = launch.start(argv, env, run_dir)
     print(f"Started (process {pid}). Follow it with:\n  tail -f {run_dir / 'nextflow.log'}")
+    return OK
+
+
+def cmd_update(args) -> int:
+    latest = args.version or update.latest_release()
+    if latest is None:
+        _err("Could not reach GitHub to find the latest release; give one with --version")
+        return CHECK_FAILED
+    if not args.version and not update.is_newer(latest, __version__):
+        print(f"quantseq-counts {__version__} is up to date")
+        return OK
+    prefix = default_install()
+    print(f"Installing quantseq-counts {latest} in {prefix / 'versions' / latest}; {__version__} stays installed")
+    rc = update.install_version(latest, prefix)
+    if rc == OK:
+        print(f"From now on quantseq-counts runs {latest}. To run {__version__} again: quantseq-counts --use {__version__} ...")
+    return rc
+
+
+def cmd_bug_report(args) -> int:
+    b = bugreport.make_bundle(Path(args.outdir), Path.cwd())
+    print(f"Wrote {b}. Open it and read it before attaching it to a GitHub issue: sample names, paths and host names "
+          "are replaced, but check that nothing about your study is left.")
     return OK
 
 
@@ -192,7 +229,12 @@ def main(argv=None, ask=input) -> int:
     r.add_argument("--accept-version-change", action="store_true")
     r.add_argument("--dry-run", action="store_true")
     r.add_argument("--yes", action="store_true", help="do not ask before starting when there are warnings")
+    r.add_argument("--foreground", action="store_true", help="wait for the run to end (for job scripts)")
     r.add_argument("--install", help=argparse.SUPPRESS)
+    u = sub.add_parser("update", help="install a newer release beside this one (only when you type it)")
+    u.add_argument("--version")
+    br = sub.add_parser("bug-report", help="a scrubbed bundle of a failed run, for a GitHub issue")
+    br.add_argument("outdir")
     a = p.parse_args(argv)
     if a.version:
         print(f"quantseq-counts {__version__}")
@@ -200,7 +242,14 @@ def main(argv=None, ask=input) -> int:
     if a.cmd == "setup":
         return cmd_setup(a, ask)
     if a.cmd == "run":
+        msg = update.notice()
+        if msg:
+            print(msg)
         return cmd_run(a, ask)
+    if a.cmd == "update":
+        return cmd_update(a)
+    if a.cmd == "bug-report":
+        return cmd_bug_report(a)
     p.print_help()
     return CHECK_FAILED
 

@@ -94,3 +94,69 @@ def start(argv: list[str], env: dict, run_dir: Path) -> int:
     (run_dir / "pid").write_text(f"{p.pid}\n")
     (run_dir / "command.json").write_text(json.dumps(argv) + "\n")
     return p.pid
+
+
+def run_foreground(argv: list[str], env: dict, run_dir: Path) -> int:
+    """Runs Nextflow attached (for job scripts and tests), its output in run/nextflow.log; returns its exit status."""
+    (run_dir / "command.json").write_text(json.dumps(argv) + "\n")
+    with open(run_dir / "nextflow.log", "ab") as log:
+        return subprocess.call(argv, env=env, cwd=run_dir, stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+
+
+def inspect_containers(s: dict, run_dir: Path, install: Path, env: dict) -> list[str]:
+    """The container images the run will use, from `nextflow inspect`, sorted and without repeats."""
+    return sorted({c for _p, c in inspect_processes(s, run_dir, install, env) if c})
+
+
+def write_containers(procs: list[tuple[str, str | None]], run_dir: Path) -> None:
+    rows = ["process\tcontainer"] + [f"{p}\t{c or 'none (runs on the host)'}" for p, c in sorted(procs)]
+    (run_dir / "containers.tsv").write_text("\n".join(rows) + "\n")
+
+
+def inspect_processes(s: dict, run_dir: Path, install: Path, env: dict) -> list[tuple[str, str | None]]:
+    """(process, container) for every process of the run, from `nextflow inspect`."""
+    argv = [str(install / "bin" / "nextflow"), "inspect", str(install / "workflow" / "main.nf"),
+            "-c", str(run_dir / "run.config"), "-params-file", str(run_dir / "settings.yaml"),
+            "-profile", s["engine"]]
+    out = subprocess.run(argv, env=env, cwd=run_dir, capture_output=True, text=True, check=True).stdout
+    data = json.loads(out[out.index("{"):])
+    return [(p["name"].split(":")[-1], p.get("container")) for p in data["processes"]]
+
+
+def udocker_pull(images: list[str], env: dict, run_dir: Path) -> list[str]:
+    """Pulls and verifies each image in turn with udocker (concurrent pulls by Nextflow fail); returns the failures."""
+    ud = env["PATH"].split(os.pathsep)[0] + "/udocker.py"
+    ud = ud if os.access(ud, os.X_OK) else "udocker"
+    failed = []
+    with open(run_dir / "images.log", "a") as log:
+        for img in images:
+            r = subprocess.run([ud, "pull", img], env=env, capture_output=True, text=True)
+            log.write(f"pull {img}: exit {r.returncode}\n{r.stdout[-2000:]}{r.stderr[-2000:]}\n")
+            ok = r.returncode == 0
+            if ok:
+                r = subprocess.run([ud, "verify", img], env=env, capture_output=True, text=True)
+                log.write(f"verify {img}: exit {r.returncode}\n{r.stdout[-2000:]}{r.stderr[-2000:]}\n")
+                if r.returncode != 0:
+                    # udocker cannot verify some images (pruned layers); check each stored layer against its digest
+                    ok = _blobs_match(Path(env["UDOCKER_DIR"]), img)
+                    log.write(f"layer checksums of {img} against their digests: {'all equal' if ok else 'FAIL'}\n")
+            if not ok:
+                failed.append(img)
+    return failed
+
+
+def _blobs_match(udocker_dir: Path, img: str) -> bool:
+    import hashlib
+    name, _, tag = img.rpartition(":")
+    tagdir = udocker_dir / "repos" / name / tag
+    blobs = sorted(tagdir.glob("sha256:*")) if tagdir.is_dir() else []
+    if not blobs:
+        return False
+    for b in blobs:
+        h = hashlib.sha256()
+        with open(b.resolve(), "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+        if "sha256:" + h.hexdigest() != b.name:
+            return False
+    return True

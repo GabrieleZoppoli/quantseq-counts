@@ -1,4 +1,5 @@
 import gzip
+import os
 import json
 from pathlib import Path
 
@@ -26,6 +27,13 @@ def study(tmp_path):
          "reference_dir": str(tmp_path / "ref"), "engine": "udocker"}
     (tmp_path / "settings.yaml").write_text(yaml.safe_dump(s))
     return tmp_path
+
+
+@pytest.fixture(autouse=True)
+def no_image_pulls(monkeypatch):
+    monkeypatch.setattr(cli.update, "notice", lambda: None)
+    monkeypatch.setattr(cli.launch, "inspect_processes", lambda s, rd, inst, env: [("P", "x/y:1")])
+    monkeypatch.setattr(cli.launch, "udocker_pull", lambda images, env, rd: [])
 
 
 def run(study, *extra):
@@ -117,3 +125,21 @@ def test_setup_reasks_invalid_answer(tmp_path, monkeypatch, capsys):
     assert "run_name" in err and "nowhere" in err
     s = st.load_settings(tmp_path / "settings.yaml")
     assert s["run_name"] == "ok1" and s["library"] == "fwd_umi" and s["engine"] == "apptainer"
+
+
+def test_foreground_returns_nextflow_status(study, monkeypatch):
+    monkeypatch.setattr(cli.launch, "run_foreground", lambda argv, env, run_dir: 7)
+    assert run(study, "--foreground") == 7
+    assert (study / "out" / "run" / "settings.yaml").exists()
+
+
+def test_run_foreground_logs(tmp_path):
+    rc = cli.launch.run_foreground(["sh", "-c", "echo hello; exit 3"], dict(os.environ), tmp_path)
+    assert rc == 3 and "hello" in (tmp_path / "nextflow.log").read_text()
+
+
+def test_failed_pull_stops(study, monkeypatch, capsys):
+    monkeypatch.setattr(cli.launch, "udocker_pull", lambda images, env, rd: ["x/y:1"])
+    monkeypatch.setattr(cli.launch, "start", lambda *a: pytest.fail("must not start"))
+    assert run(study) == 2
+    assert "x/y:1" in capsys.readouterr().err

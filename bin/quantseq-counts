@@ -4,6 +4,14 @@ set -euo pipefail
 src="${BASH_SOURCE[0]}"
 while [ -L "$src" ]; do d="$(cd "$(dirname "$src")" && pwd)"; src="$(readlink "$src")"; case "$src" in /*) ;; *) src="$d/$src" ;; esac; done
 PREFIX="$(cd "$(dirname "$src")/.." && pwd)"
+OWN="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$PREFIX/src/quantseq_counts/__init__.py")"
+# a version installed beside this one by `quantseq-counts update`: --use VERSION for one call, else CURRENT
+WANT=""
+if [ "${1:-}" = "--use" ]; then WANT="${2:-}"; shift 2; elif [ -f "$PREFIX/CURRENT" ]; then WANT="$(cat "$PREFIX/CURRENT")"; fi
+if [ -n "$WANT" ] && [ "$WANT" != "$OWN" ]; then
+  [ -x "$PREFIX/versions/$WANT/bin/quantseq-counts" ] || { echo "quantseq-counts $WANT is not installed in $PREFIX/versions/" >&2; exit 2; }
+  exec "$PREFIX/versions/$WANT/bin/quantseq-counts" "$@"
+fi
 PY="$PREFIX/env/bin/python"; [ -x "$PY" ] || PY="$(command -v python3)"
 export QUANTSEQ_COUNTS_HOME="$PREFIX" PYTHONPATH="$PREFIX/src${PYTHONPATH:+:$PYTHONPATH}"
 exec "$PY" -m quantseq_counts "$@"

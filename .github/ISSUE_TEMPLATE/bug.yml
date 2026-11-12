@@ -1,0 +1,24 @@
+name: Something went wrong
+description: A run failed or gave a result you did not expect
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not paste sample names, file paths, patient information or results here.
+        Run `quantseq-counts bug-report <output folder>`, open the file it writes and read it, then attach it below.
+  - type: input
+    id: version
+    attributes:
+      label: Version (`quantseq-counts --version`)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and the error message on the screen
+    validations:
+      required: true
+  - type: textarea
+    id: bundle
+    attributes:
+      label: The bug-report bundle (drag the .tar.gz file here)
