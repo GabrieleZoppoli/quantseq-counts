@@ -9,6 +9,7 @@ include { FEATURECOUNTS_MAIN          } from './modules/local/featurecounts_main
 include { BUILD_OUTPUTS               } from './modules/local/build_outputs'
 include { QUANTSEQ_SCREEN             } from './modules/local/quantseq_screen'
 include { QC_TABLE                    } from './modules/local/qc_table'
+include { DEDUP_POSITION              } from './modules/local/dedup_position'
 include { MULTIQC                     } from './modules/nf-core/multiqc/main'
 include { GUNZIP as GUNZIP_FASTA      } from './modules/nf-core/gunzip/main'
 include { GUNZIP as GUNZIP_GTF        } from './modules/nf-core/gunzip/main'
@@ -147,6 +148,9 @@ workflow {
         SAMTOOLS_STATS_DEDUP(ch_count, no_ref)
         SAMTOOLS_FLAGSTAT_DEDUP(ch_count)
         SAMTOOLS_IDXSTATS_DEDUP(ch_count)
+    } else if (params.dedup_without_umi) {
+        DEDUP_POSITION(ch_sorted)
+        ch_count = DEDUP_POSITION.out.bam_bai
     }
 
     // ---- the main counts and the R outputs
