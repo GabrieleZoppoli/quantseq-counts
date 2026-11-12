@@ -1,0 +1,16 @@
+comparison	result	objects	not_same
+A_vs_C	same	12	0
+D1_vs_D2	same	12	0
+
+same	counts.tsv
+same	counts.rds
+same	qc/samples.tsv
+same	run/intermediate/S1.sorted.bam
+same	run/intermediate/S1.umi_dedup.sorted.bam
+same	run/intermediate/S2.sorted.bam
+same	run/intermediate/S2.umi_dedup.sorted.bam
+same	run/intermediate/S3.sorted.bam
+same	run/intermediate/S3.umi_dedup.sorted.bam
+same	run/intermediate/S1_trimmed_trimmed.fq.gz
+same	run/intermediate/S2_trimmed_trimmed.fq.gz
+same	run/intermediate/S3_trimmed_trimmed.fq.gz
