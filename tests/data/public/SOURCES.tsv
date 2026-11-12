@@ -1,0 +1,6 @@
+run	library	study	sample	publication	licence
+SRR13248213	fwd_umi	PRJNA684945 (GSE163122)	human cerebral cortex nuclei, NeuN+	Nat Neurosci 2022, PMID 35879464, doi:10.1038/s41593-022-01124-3	INSDC: free and unrestricted access
+SRR13248206	fwd_umi	PRJNA684945 (GSE163122)	human cerebral cortex nuclei, NeuN+	Nat Neurosci 2022, PMID 35879464, doi:10.1038/s41593-022-01124-3	INSDC: free and unrestricted access
+SRR13248224	fwd_umi	PRJNA684945 (GSE163122)	human cerebral cortex nuclei, OLIG2+	Nat Neurosci 2022, PMID 35879464, doi:10.1038/s41593-022-01124-3	INSDC: free and unrestricted access
+SRR14325914	fwd_no_umi	PRJNA725183 (GSE173317)	human whole blood	Front Immunol 2021, PMID 34675930, doi:10.3389/fimmu.2021.746203	INSDC: free and unrestricted access
+SRR14325903	fwd_no_umi	PRJNA725183 (GSE173317)	human whole blood	Front Immunol 2021, PMID 34675930, doi:10.3389/fimmu.2021.746203	INSDC: free and unrestricted access
