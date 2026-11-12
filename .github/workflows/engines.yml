@@ -25,6 +25,8 @@ jobs:
         run: bash install.sh --prefix "$RUNNER_TEMP/qc"
       - name: Run and check every command
         run: bash tests/workflow/test_commands.sh "$RUNNER_TEMP/qc" ${{ matrix.engine }} "$RUNNER_TEMP/w" ${{ matrix.library }}
+      - name: Self-test on the public data, counts compared with those stored (written with udocker)
+        run: '"$RUNNER_TEMP/qc/bin/quantseq-counts" test --engine ${{ matrix.engine }} --library ${{ matrix.library }} --workdir "$RUNNER_TEMP/st"'
       - name: Keep the run record if it failed
         if: failure()
         uses: actions/upload-artifact@v4

@@ -46,3 +46,15 @@ def test_cli_test_compares(tmp_path, monkeypatch, capsys):
     rc = cli.main(["test", "--engine", "docker", "--workdir", str(tmp_path)])
     out = capsys.readouterr().out
     assert rc == 1 and "fwd_umi: identical" in out and "fwd_no_umi: first difference" in out
+
+
+def test_write_mode_does_not_claim_a_check(tmp_path, monkeypatch, capsys):
+    def fake_run(argv, ask=None):
+        out = tmp_path / "w" / "out_fwd_umi"; out.mkdir(parents=True, exist_ok=True)
+        (out / "counts.tsv").write_text("gene_id\tS\nG\t1\n"); return 0
+    monkeypatch.setattr(selftest, "_run", fake_run)
+    monkeypatch.setattr(selftest, "expected_file", lambda root, lib: tmp_path / f"exp_{lib}.tsv")
+    from pathlib import Path
+    rc = selftest.run_selftest(Path(__file__).resolve().parents[2], "docker", tmp_path / "w", 4, "14 GB", ["fwd_umi"], write_expected=True)
+    out = capsys.readouterr().out
+    assert rc == 0 and "wrote" in out and "installation works" not in out

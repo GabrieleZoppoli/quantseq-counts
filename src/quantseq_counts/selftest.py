@@ -71,5 +71,8 @@ def run_selftest(root: Path, engine: str, workdir: Path, cpus: int, memory: str,
         ok, msg = compare_counts(exp, got)
         print(f"{lib}: {msg}")
         rc = rc or (0 if ok else 1)
-    print("installation works: the counts are those every installation gives" if rc == 0 else "TEST FAILED")
+    if write_expected:
+        print("expected counts written; nothing was compared" if rc == 0 else "TEST FAILED")
+    else:
+        print("installation works: the counts are those every installation gives" if rc == 0 else "TEST FAILED")
     return rc
