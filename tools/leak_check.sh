@@ -21,8 +21,13 @@ hits=0
 while IFS= read -r p || [ -n "$p" ]; do
   [ -z "$p" ] && continue
   case "$p" in \#*) continue ;; esac
-  # working tree, tracked or not, hidden files included, .git excluded
-  while IFS= read -r h; do echo "${h#./}:$p"; hits=1; done < <(grep -rEnIo --exclude-dir=.git -e "$p" . 2>/dev/null | cut -d: -f1,2)
+  # working tree: in a git repository every file that could be published (tracked, or untracked and not ignored,
+  # hidden files included); elsewhere every file
+  if git rev-parse --git-dir >/dev/null 2>&1; then
+    while IFS= read -r h; do echo "$h:$p"; hits=1; done < <(git ls-files -z -co --exclude-standard | xargs -0 grep -EnIoH -e "$p" 2>/dev/null | cut -d: -f1,2)
+  else
+    while IFS= read -r h; do echo "${h#./}:$p"; hits=1; done < <(grep -rEnIo --exclude-dir=.git -e "$p" . 2>/dev/null | cut -d: -f1,2)
+  fi
   if [ $HIST -eq 1 ] && git rev-parse --git-dir >/dev/null 2>&1 && git rev-parse HEAD >/dev/null 2>&1; then
     while IFS= read -r c; do
       while IFS= read -r h; do echo "$h:$p"; hits=1; done < <(git grep -EnIo -e "$p" "$c" 2>/dev/null | cut -d: -f1-3)

@@ -21,6 +21,9 @@ out="$(bash "$LC" --patterns "$T/patterns.txt" --history "$R")"; rc=$?
 printf '%s\n' "$out" | grep -q 'x.txt' && ok "history names the file" || ko "history names the file (got: $out)"
 echo "the secret-host was here" > ".hidden"; out="$(bash "$LC" --patterns "$T/patterns.txt" "$R")"; rc=$?
 [ $rc -eq 1 ] && ok "hidden files scanned" || ko "hidden files scanned (rc $rc)"
-rm .hidden; bash "$LC" "$R" >/dev/null 2>&1; rc=$?
+rm .hidden; printf 'scratch/\n' > .gitignore; mkdir scratch; echo "AB999" > scratch/notes.txt
+out="$(bash "$LC" --patterns "$T/patterns.txt" "$R")"; rc=$?
+[ $rc -eq 0 ] && ok "git-ignored files are not scanned (never published)" || ko "git-ignored files are not scanned (rc $rc: $out)"
+rm -rf scratch .gitignore; bash "$LC" "$R" >/dev/null 2>&1; rc=$?
 [ $rc -eq 2 ] && ok "missing pattern file is an error" || ko "missing pattern file is an error (rc $rc)"
 [ $fail -eq 0 ] && echo "RESULT: PASS" || { echo "RESULT: FAIL"; exit 1; }
