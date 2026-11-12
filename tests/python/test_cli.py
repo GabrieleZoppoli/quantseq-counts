@@ -143,3 +143,11 @@ def test_failed_pull_stops(study, monkeypatch, capsys):
     monkeypatch.setattr(cli.launch, "start", lambda *a: pytest.fail("must not start"))
     assert run(study) == 2
     assert "x/y:1" in capsys.readouterr().err
+
+
+def test_extra_config_appended(study, capsys, tmp_path):
+    extra = tmp_path / "threads.config"; extra.write_text("process.cpus = 3\n")
+    assert run(study, "--dry-run", "--extra-config", str(extra)) == 0
+    argv = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
+    i = [k for k, a in enumerate(argv) if a == "-c"]
+    assert len(i) == 2 and argv[i[1] + 1] == str(extra) and i[1] > i[0]

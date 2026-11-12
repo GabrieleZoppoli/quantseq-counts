@@ -170,6 +170,9 @@ def cmd_run(args, ask) -> int:
         paths += [Path(s["fasta"]), Path(s["gtf"])]
     mounts = launch.container_mounts(paths)
     argv = launch.nextflow_command(s, run_dir, install, resume=args.resume)
+    if args.extra_config:
+        i = argv.index("-params-file")
+        argv[i:i] = ["-c", str(Path(args.extra_config).absolute())]
     if args.dry_run:
         print(json.dumps(argv))
         return OK
@@ -231,6 +234,7 @@ def main(argv=None, ask=input) -> int:
     r.add_argument("--yes", action="store_true", help="do not ask before starting when there are warnings")
     r.add_argument("--foreground", action="store_true", help="wait for the run to end (for job scripts)")
     r.add_argument("--install", help=argparse.SUPPRESS)
+    r.add_argument("--extra-config", help=argparse.SUPPRESS)  # release checks only (other thread counts)
     u = sub.add_parser("update", help="install a newer release beside this one (only when you type it)")
     u.add_argument("--version")
     br = sub.add_parser("bug-report", help="a scrubbed bundle of a failed run, for a GitHub issue")
