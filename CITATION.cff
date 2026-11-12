@@ -1,0 +1,8 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "quantseq-counts"
+authors:
+  - family-names: "Zoppoli"
+    given-names: "Gabriele"
+license: MIT
+repository-code: "https://github.com/GabrieleZoppoli/quantseq-counts"

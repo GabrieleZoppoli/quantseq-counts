@@ -1,0 +1,8 @@
+work/
+.nextflow*
+results/
+*.bam
+*.bai
+__pycache__/
+*.pyc
+.DS_Store
