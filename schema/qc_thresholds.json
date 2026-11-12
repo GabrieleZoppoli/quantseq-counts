@@ -1,0 +1,6 @@
+{
+  "status": "proposed by the developers, to be approved before the first release; a library below any of these is flagged (not excluded)",
+  "min_assigned_reads": 1000000,
+  "min_unique_share": 0.5,
+  "min_umi_spacer_share": 0.5
+}

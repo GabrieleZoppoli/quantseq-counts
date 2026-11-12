@@ -1,0 +1,1 @@
+Copied from nf-core/rnaseq commit e7ca46272c8f9d5ceee3f71759f4ba551d3217a4 (modules/nf-core/), without their tests/ folders, under the MIT licence in LICENSE-nf-core.

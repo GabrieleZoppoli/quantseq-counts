@@ -1,0 +1,34 @@
+process	kind	text	source
+FQ_LINT	contains	--disable-validator P001	executed in the reference run
+FASTQC	contains	--quiet	executed in the reference run
+UMITOOLS_EXTRACT	contains	--extract-method=regex	executed in the reference run
+UMITOOLS_EXTRACT	contains	--bc-pattern='^(?P<umi_1>.{6})(?P<discard_1>.{4}).*'	executed in the reference run
+TRIMGALORE	contains	--adapter AGATCGGAAGAGC	executed in the reference run
+TRIMGALORE	contains	--gzip	executed in the reference run
+TRIMGALORE	contains	--fastqc_args	executed in the reference run
+TRIMGALORE	absent	--illumina	not in the executed command (0 occurrences)
+STAR_GENOMEGENERATE	contains	--runMode genomeGenerate	executed in the reference run
+STAR_GENOMEGENERATE	contains	--sjdbGTFfile	executed in the reference run
+STAR_GENOMEGENERATE	contains	--genomeSAindexNbases	executed in the reference run
+STAR_ALIGN	contains	--outSAMtype BAM Unsorted	executed in the reference run
+STAR_ALIGN	contains	--outSAMattributes NH HI AS NM MD	executed in the reference run
+STAR_ALIGN	contains	--readFilesCommand zcat	executed in the reference run
+STAR_ALIGN	contains	--twopassMode Basic	executed in the reference run
+STAR_ALIGN	contains	--runRNGseed 0	executed in the reference run
+STAR_ALIGN	contains	--outFilterMultimapNmax 20	executed in the reference run
+STAR_ALIGN	contains	--alignSJDBoverhangMin 1	executed in the reference run
+STAR_ALIGN	contains	--outSAMstrandField intronMotif	executed in the reference run
+STAR_ALIGN	contains	--outFilterMismatchNoverLmax 0.1	executed in the reference run
+STAR_ALIGN	contains	--clip3pAdapterSeq AAAAAAAA	executed in the reference run
+STAR_ALIGN	contains	--sjdbGTFfile	executed in the reference run
+STAR_ALIGN	absent	TranscriptomeSAM	removed from the reference run: no transcriptome output
+STAR_ALIGN	absent	--quantTranscriptomeSAMoutput	removed from the reference run: no transcriptome output
+SORT_NAME_THEN_POSITION	contains	samtools sort -n --no-PG	the name-then-position sort (new)
+SORT_NAME_THEN_POSITION	contains	samtools sort --no-PG	the name-then-position sort (new)
+UMICOLLAPSE	contains	--two-pass	executed in the reference run
+UMICOLLAPSE	contains	--algo 'dir'	executed in the reference run
+SUBREAD_FEATURECOUNTS	contains	-B -C -g gene_biotype -t exon	executed in the reference run
+SUBREAD_FEATURECOUNTS	contains	-s 1	executed in the reference run
+SAMTOOLS_SORT_QUALIMAP	contains	-n	executed in the reference run
+QUALIMAP_RNASEQ	contains	--sorted	executed in the reference run
+QUALIMAP_RNASEQ	contains	-p strand-specific-forward	executed in the reference run
