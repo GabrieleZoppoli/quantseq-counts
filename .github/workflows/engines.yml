@@ -46,6 +46,7 @@ jobs:
             "SlurmdSpoolDir=/var/spool/slurmd" "StateSaveLocation=/var/spool/slurmctld" "SelectType=select/cons_tres" \
             "SelectTypeParameters=CR_Core_Memory" "ReturnToService=2" \
             "SlurmctldLogFile=/var/log/slurm/slurmctld.log" "SlurmdLogFile=/var/log/slurm/slurmd.log" \
+            "TaskPlugin=task/none" "JobAcctGatherType=jobacct_gather/none" "MpiDefault=none" "SlurmdUser=root" \
             "NodeName=$H CPUs=$C RealMemory=$M State=UNKNOWN" "PartitionName=debug Nodes=$H Default=YES MaxTime=INFINITE State=UP" \
             | sudo tee /etc/slurm/slurm.conf
           sudo chown slurm: /var/spool/slurmd /var/spool/slurmctld /var/log/slurm
@@ -60,9 +61,12 @@ jobs:
         if: failure() || cancelled()
         run: |
           squeue -a || true; sacct -a --format=JobID,JobName%40,State,ExitCode,ReqMem,ReqCPUS,NodeList || true
-          sudo tail -40 /var/log/slurm/slurmctld.log /var/log/slurm/slurmd.log || true
-          tail -60 "$RUNNER_TEMP/w/out/run/nextflow.log" || true
-          tail -60 "$RUNNER_TEMP/w/out/run/.nextflow.log" "$RUNNER_TEMP/w/run.out" 2>/dev/null || true
+          sinfo -R || true
+          sudo tail -n 40 /var/log/slurm/slurmctld.log || true
+          sudo tail -n 40 /var/log/slurm/slurmd.log || true
+          tail -n 60 "$RUNNER_TEMP/w/out/run/nextflow.log" || true
+          tail -n 60 "$RUNNER_TEMP/w/run.out" 2>/dev/null || true
+          for f in "$RUNNER_TEMP"/w/out/work/*/*/.command.log; do echo "== $f"; tail -n 20 "$f"; done 2>/dev/null | head -n 80 || true
       - name: Keep the run record if it failed
         if: failure()
         uses: actions/upload-artifact@v4
