@@ -4,7 +4,8 @@ a random two-chromosome genome, a GTF of 24 genes on both strands (some with two
 an identical 3' end so that reads align to two places), and three libraries of reads taken from the 3' ends of the
 genes, each read = 6-nt UMI + TATA + insert, running into poly(A) and the adapter when the insert reaches the end.
 Many reads share position and UMI (PCR duplicates) and many share position with different UMIs, so that
-deduplication and the order of tied reads are exercised. Usage: make_synthetic_data.py OUTDIR
+deduplication and the order of tied reads are exercised. With --no-umi the reads start with the insert
+(QuantSeq FWD without UMI). Usage: make_synthetic_data.py OUTDIR [--no-umi]
 """
 import gzip
 import random
@@ -26,7 +27,7 @@ def gz_write(path, text):
         f.write(text.encode())
 
 
-def main(out):
+def main(out, umi_mode=True):
     out = Path(out); out.mkdir(parents=True, exist_ok=True)
     rnd = random.Random(SEED)
     chroms = {c: "".join(rnd.choice("ACGT") for _ in range(120_000)) for c in ("chrA", "chrB")}
@@ -66,7 +67,7 @@ def main(out):
                 umi = "".join(rnd.choice("ACGT") for _ in range(6)) if rnd.random() < 0.7 else "ACGTAC"
                 for _dup in range(rnd.choice((1, 1, 1, 2, 3))):
                     insert = (g[start:] + "A" * 30 + ADAPTER)[: READ_LEN - 10]
-                    seq = umi + "TATA" + insert
+                    seq = (umi + "TATA" + insert) if umi_mode else (g[start:] + "A" * 30 + ADAPTER)[:READ_LEN]
                     n += 1
                     recs.append(f"@syn{lib}_{n:06d}\n{seq}\n+\n{'I' * len(seq)}\n")
         rnd.shuffle(recs)
@@ -76,4 +77,4 @@ def main(out):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1])
+    main(sys.argv[1], umi_mode="--no-umi" not in sys.argv[2:])

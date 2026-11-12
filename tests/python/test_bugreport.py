@@ -5,9 +5,9 @@ from quantseq_counts import bugreport
 
 
 def make_run(tmp_path):
-    out = tmp_path / "home" / "alice" / "study7" / "out"; rd = out / "run"; rd.mkdir(parents=True)
+    out = tmp_path / "srv" / "alice" / "study7" / "out"; rd = out / "run"; rd.mkdir(parents=True)
     (rd / "samples.csv").write_text("sample,fastq,group\nPT0042,PT0042_R1.fastq.gz,case\nPT0099,PT0099_R1.fastq.gz,ctrl\n")
-    (rd / "settings.yaml").write_text(f"run_name: 'study7'\nfastq_dir: '{tmp_path}/home/alice/fq'\noutdir: '{out}'\n")
+    (rd / "settings.yaml").write_text(f"run_name: 'study7'\nfastq_dir: '{tmp_path}/srv/alice/fq'\noutdir: '{out}'\n")
     (rd / "versions.tsv").write_text("process\ttool\tversion\nSTAR_ALIGN\tstar\t2.7.11b\n")
     work = out / "work" / "ab" / "cdef"; work.mkdir(parents=True)
     (work / ".command.err").write_text(f"EXITING because of fatal ERROR in reads input: PT0099 at {work}/x.fq on {socket.gethostname()}\n")

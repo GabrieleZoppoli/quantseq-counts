@@ -27,3 +27,10 @@ def test_contents(tmp_path):
     assert sum(s[6:10] == "TATA" for s in seqs) / len(seqs) > 0.95
     gtf = gzip.open(tmp_path / "genes.gtf.gz", "rt").read()
     assert 'gene_biotype "protein_coding"' in gtf and "\texon\t" in gtf and 'transcript_id "' in gtf
+
+
+def test_no_umi_variant(tmp_path):
+    subprocess.run([sys.executable, str(ROOT / "tools" / "make_synthetic_data.py"), str(tmp_path), "--no-umi"], check=True)
+    with gzip.open(tmp_path / "S1.fastq.gz", "rt") as f:
+        seqs = [l.strip() for i, l in enumerate(f) if i % 4 == 1]
+    assert sum(s[6:10] == "TATA" for s in seqs) / len(seqs) < 0.05

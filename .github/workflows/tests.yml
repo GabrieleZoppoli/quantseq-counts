@@ -1,0 +1,32 @@
+# Unit tests, the form, the installer, a stub run of the workflow in its three modes, and the leak check with
+# generic patterns. Runs on every push and pull request.
+name: tests
+on: [push, pull_request]
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '20' }
+      - name: Install into a folder, without root (also runs the unit tests with the installed Python)
+        run: bash tests/install/test_install.sh "$RUNNER_TEMP/qc"
+      - name: Tool scripts
+        run: |
+          bash tests/tools/test_leak_check.sh
+          bash tests/tools/test_wrapper.sh
+          bash tests/tools/test_versions_switch.sh
+          SAMTOOLS="$RUNNER_TEMP/qc/env/bin/samtools" bash tests/tools/test_compare_runs.sh
+          bash tests/tools/test_release_gate.sh
+      - name: Form page
+        run: node tests/form/test_form.mjs
+      - name: Stub runs of the workflow
+        run: |
+          for m in fwd_umi fwd_no_umi fwd_no_umi_dedup; do NXF="$RUNNER_TEMP/qc/bin/nextflow" bash tests/workflow/test_stub.sh $m; done
+      - name: QC table and R outputs
+        run: |
+          "$RUNNER_TEMP/qc/env/bin/python" -m pytest -q tests/workflow/test_qc_table.py
+      - name: Nothing that looks like a sample identifier or a private path
+        run: |
+          printf '%s\n' '/home/[a-z]+/' '/Users/[a-z]+/' 'BEGIN [A-Z ]*PRIVATE KEY' > "$RUNNER_TEMP/patterns.txt"
+          bash tools/leak_check.sh --patterns "$RUNNER_TEMP/patterns.txt" .
