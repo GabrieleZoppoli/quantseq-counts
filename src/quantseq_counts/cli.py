@@ -6,7 +6,7 @@ import os
 import sys
 from pathlib import Path
 
-from . import __version__, bugreport, launch, update
+from . import __version__, bugreport, launch, selftest, update
 from . import samples as sm
 from . import settings as st
 
@@ -235,6 +235,13 @@ def main(argv=None, ask=input) -> int:
     r.add_argument("--foreground", action="store_true", help="wait for the run to end (for job scripts)")
     r.add_argument("--install", help=argparse.SUPPRESS)
     r.add_argument("--extra-config", help=argparse.SUPPRESS)  # release checks only (other thread counts)
+    te = sub.add_parser("test", help="run the bundled public data and compare the counts with the stored ones")
+    te.add_argument("--engine", default="apptainer", choices=["apptainer", "udocker", "docker"])
+    te.add_argument("--workdir", default="quantseq-counts-test")
+    te.add_argument("--library", default="both", choices=["both", "fwd_umi", "fwd_no_umi"])
+    te.add_argument("--max-cpus", type=int, default=4)
+    te.add_argument("--max-memory", default="14 GB")
+    te.add_argument("--write-expected", action="store_true", help=argparse.SUPPRESS)
     u = sub.add_parser("update", help="install a newer release beside this one (only when you type it)")
     u.add_argument("--version")
     br = sub.add_parser("bug-report", help="a scrubbed bundle of a failed run, for a GitHub issue")
@@ -250,6 +257,10 @@ def main(argv=None, ask=input) -> int:
         if msg:
             print(msg)
         return cmd_run(a, ask)
+    if a.cmd == "test":
+        libs = ["fwd_umi", "fwd_no_umi"] if a.library == "both" else [a.library]
+        return selftest.run_selftest(default_install(), a.engine, Path(a.workdir).absolute(), a.max_cpus, a.max_memory,
+                                     libs, a.write_expected)
     if a.cmd == "update":
         return cmd_update(a)
     if a.cmd == "bug-report":
