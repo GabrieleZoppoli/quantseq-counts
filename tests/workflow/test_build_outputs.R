@@ -43,4 +43,16 @@ system2(file.path(R.home("bin"), "Rscript"), c(shQuote(script), "--fc", file.pat
 ok(identical(readLines(file.path(d, "o3", "counts.tsv")), tsv), "same table from a GTF with exon lines only")
 se3 <- readRDS(file.path(d, "o3", "counts.rds"))
 ok(identical(rowData(se3)$start, c(1L, 200L)) && identical(rowData(se3)$strand, c("+", "-")), "gene coordinates from the exons")
+# no listed library among the counted ones: stop, never write an empty table
+writeLines(c("sample,fastq,group", "X1,x.fq.gz,"), file.path(d, "samples_none.csv"))
+r <- system2(file.path(R.home("bin"), "Rscript"), c(shQuote(script), "--fc", file.path(d, "fc.txt"), "--gtf", file.path(d, "genes.gtf"),
+  "--samples", file.path(d, "samples_none.csv"), "--excluded", file.path(d, "no_such.tsv"), "--version", "9.9.9",
+  "--out", file.path(d, "o4")), stdout = TRUE, stderr = TRUE)
+ok(!is.null(attr(r, "status")) && attr(r, "status") != 0 && !file.exists(file.path(d, "o4", "counts.tsv")), "no listed library counted: error, no table")
+# the same bytes whatever the locale of the container
+runl <- function(out, loc) system2("env", c(paste0("LC_ALL=", loc), paste0("LANG=", loc), file.path(R.home("bin"), "Rscript"),
+  shQuote(script), "--fc", file.path(d, "fc.txt"), "--gtf", file.path(d, "genes.gtf"), "--samples", file.path(d, "samples.csv"),
+  "--excluded", file.path(d, "excluded.tsv"), "--version", "9.9.9", "--out", file.path(d, out)), stdout = TRUE, stderr = TRUE)
+runl("o5", "C"); runl("o6", "en_US.UTF-8")
+ok(identical(md5("o5"), md5("o6")), "counts.tsv and counts.rds equal under the C and a UTF-8 locale")
 cat(if (fails == 0) "RESULT: PASS\n" else "RESULT: FAIL\n"); quit(status = as.integer(fails > 0))

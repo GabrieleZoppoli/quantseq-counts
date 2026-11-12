@@ -1,0 +1,42 @@
+# Release gate, part run on GitHub's machines: runs A (standard) and C (other thread counts for STAR, the sorts and
+# featureCounts) of the bundled public data must be identical in every object (counts, R object, QC table, BAM
+# records, trimmed reads), with each engine and library mode. The control (sort off, D1 against D2) needs more reads
+# than these machines can take and is run on a server with 2,000,000-read libraries (docs/gate/).
+name: gate
+on: [push, pull_request]
+jobs:
+  gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [docker, apptainer]
+        library: [fwd_umi, fwd_no_umi]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unprivileged user namespaces allowed on this throwaway machine (Apptainer)
+        if: matrix.engine == 'apptainer'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+      - name: Apptainer
+        if: matrix.engine == 'apptainer'
+        uses: eWaterCycle/setup-apptainer@v3.0.0
+        with: { apptainer-version: 1.4.5 }
+      - name: Install
+        run: bash install.sh --prefix "$RUNNER_TEMP/qc"
+      - name: Settings for the public test data
+        run: |
+          PYTHONPATH="$RUNNER_TEMP/qc/src" "$RUNNER_TEMP/qc/env/bin/python" - <<'PY'
+          import os
+          from pathlib import Path
+          from quantseq_counts import selftest, settings as st
+          t = Path(os.environ["RUNNER_TEMP"])
+          s, _ = selftest.selftest_settings(t / "qc", "${{ matrix.library }}", "${{ matrix.engine }}", t / "gw", 4, "14 GB")
+          (t / "base.yaml").write_text(st.dump_settings(s))
+          PY
+      - name: Runs A and C, compared object by object
+        run: bash "$RUNNER_TEMP/qc/tools/release_gate.sh" --install "$RUNNER_TEMP/qc" --settings "$RUNNER_TEMP/base.yaml" --out "$RUNNER_TEMP/g" --runs A,C
+      - name: Keep the gate table
+        if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: 'gate-${{ matrix.engine }}-${{ matrix.library }}', path: '${{ runner.temp }}/g/*.tsv' }

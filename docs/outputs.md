@@ -11,5 +11,6 @@ One folder per run (`outdir`):
 - `excluded.tsv`: libraries not counted (too few reads after trimming), with the reason.
 - `qc/multiqc_report.html`, `qc/samples.tsv`, and the per-tool folders.
 - `run/`: `settings.yaml` (every setting as run), `changes.tsv` (settings changed from the standard), `samples.csv`,
-  `versions.tsv`, `containers.tsv`, `trace.txt`, `report.html`, `nextflow.log`.
+  `versions.tsv`, `containers.tsv` (each process's image and its digest), `trace.txt`, `report.html`, `nextflow.log`,
+  and `DONE` once the run has ended without error.
 - With `keep_bams` or `keep_trimmed_fastq`: the alignments and trimmed reads in `run/intermediate/`.

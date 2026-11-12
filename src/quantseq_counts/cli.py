@@ -21,6 +21,11 @@ def default_install() -> Path:
     return Path(os.environ.get("QUANTSEQ_COUNTS_HOME", Path(__file__).resolve().parents[2]))
 
 
+def default_root() -> Path:
+    """The first installation, under which `update` puts every later version (versions/<version>)."""
+    return Path(os.environ.get("QUANTSEQ_COUNTS_ROOT", default_install()))
+
+
 # ---------------------------------------------------------------- setup
 
 def _question(ask, key, check=None, default=None, label=None):
@@ -135,7 +140,19 @@ def cmd_run(args, ask) -> int:
             _err(x)
         return CHECK_FAILED
     s = st.with_defaults(s)
-    samples_file = Path(args.samples) if args.samples else (sfile.parent / s["samples"])
+    # every path setting: ~ expanded, and a relative path taken from the folder of the settings file
+    base = sfile.absolute().parent
+    for k, e in st.SCHEMA.items():
+        if e["type"] == "path" and s.get(k):
+            p = Path(os.path.expanduser(str(s[k])))
+            s[k] = str(p if p.is_absolute() else base / p)
+    if s["reference"] == "custom":
+        missing = [k for k in ("fasta", "gtf") if not Path(s[k]).is_file()]
+        if missing:
+            for k in missing:
+                _err(f"{k}: {s[k]} not found")
+            return CHECK_FAILED
+    samples_file = Path(args.samples) if args.samples else Path(s["samples"])
     try:
         rows = sm.read_samples(samples_file)
     except (OSError, ValueError) as e:
@@ -152,8 +169,8 @@ def cmd_run(args, ask) -> int:
             warnings.append(f"{r.name}: {msg}")
     warnings += st.warnings_for(s)
     out = Path(s["outdir"]).absolute()
-    if (out / "counts.tsv").exists():
-        _err(f"{out} holds a finished run (counts.tsv): choose another outdir"); return REFUSED
+    if (out / "run" / "DONE").exists():
+        _err(f"{out} holds a finished run (run/DONE): choose another outdir"); return REFUSED
     if (out / "run").exists() and not args.resume:
         _err(f"{out} holds an unfinished run: add --resume to continue it, or choose another outdir"); return REFUSED
     for w in warnings:
@@ -179,10 +196,11 @@ def cmd_run(args, ask) -> int:
     launch.write_run_files(s, samples_file, run_dir, mounts)
     env = launch.engine_env(s, run_dir, install)
     procs = launch.inspect_processes(s, run_dir, install, env)
-    launch.write_containers(procs, run_dir)
+    pins = launch.load_pins(install)
+    launch.write_containers(procs, run_dir, pins)
     if s["engine"] == "udocker":
-        print("Pulling and checking the container images (once per installation; this can take a while)")
-        failed = launch.udocker_pull(sorted({c for _p, c in procs if c}), env, run_dir)
+        print("Checking the container images (pulled only when absent; the first time this can take a while)")
+        failed = launch.udocker_pull(sorted({c for _p, c in procs if c}), env, run_dir, pins)
         if failed:
             _err("These images could not be pulled or checked (see " + str(run_dir / "images.log") + "):")
             for f in failed:
@@ -205,7 +223,7 @@ def cmd_update(args) -> int:
     if not args.version and not update.is_newer(latest, __version__):
         print(f"quantseq-counts {__version__} is up to date")
         return OK
-    prefix = default_install()
+    prefix = default_root()
     print(f"Installing quantseq-counts {latest} in {prefix / 'versions' / latest}; {__version__} stays installed")
     rc = update.install_version(latest, prefix)
     if rc == OK:

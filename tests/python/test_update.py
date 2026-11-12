@@ -44,3 +44,12 @@ def test_cli_update_up_to_date(monkeypatch, capsys):
     monkeypatch.setattr(update, "latest_release", lambda **k: __version__)
     assert cli.main(["update"]) == 0
     assert "up to date" in capsys.readouterr().out
+
+
+def test_update_installs_under_the_root(monkeypatch, tmp_path, capsys):
+    root = tmp_path / "root"
+    monkeypatch.setenv("QUANTSEQ_COUNTS_ROOT", str(root))
+    monkeypatch.setattr(update, "latest_release", lambda **k: "9.9.9")
+    seen = []
+    monkeypatch.setattr(update, "install_version", lambda v, prefix: seen.append((v, prefix)) or 0)
+    assert cli.main(["update"]) == 0 and seen == [("9.9.9", root)]

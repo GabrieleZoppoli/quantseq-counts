@@ -29,3 +29,20 @@ def test_bugreport_scrubs(tmp_path):
     for secret in ("PT0042", "PT0099", "alice", "study7", str(tmp_path), socket.gethostname()):
         assert secret not in text, secret
     assert "S02" in text and "STAR_ALIGN" in text and "2.7.11b" in text and "fatal ERROR" in text and "<path>" in text
+
+
+def test_fastq_names_and_spaced_paths_scrubbed(tmp_path):
+    out = tmp_path / "o"; rd = out / "run"; rd.mkdir(parents=True)
+    (rd / "samples.csv").write_text("sample,fastq,group\nT1,ROSSI_MARIO_1950.fastq.gz,\n")
+    (rd / "settings.yaml").write_text("run_name: 'x1'\n")
+    work = out / "work" / "ab" / "cd"; work.mkdir(parents=True)
+    (work / ".command.sh").write_text("ln -s '/data/my study/ROSSI_MARIO_1950.fastq.gz' T1.fastq.gz\n"
+                                      "fastqc \"/data/my study/ROSSI_MARIO_1950_raw.gz\"\n")
+    (work / ".command.err").write_text("error reading ROSSI_MARIO_1950.fastq.gz\n")
+    (rd / "trace.txt").write_text("task_id\thash\tname\tstatus\texit\tcontainer\tcpus\tmemory\trealtime\t%cpu\tpeak_rss\tworkdir\n"
+                                  f"1\tab/cd\tFASTQC (T1)\tFAILED\t1\tq/f:1\t1\t1 GB\t1s\t1%\t1 MB\t{work}\n")
+    b = bugreport.make_bundle(out, tmp_path / "b")
+    text = "".join(t.extractfile(m).read().decode() for t in [tarfile.open(b)] for m in t.getmembers() if m.isfile())
+    for secret in ("ROSSI", "MARIO", "1950", "my study"):
+        assert secret not in text, secret
+    assert "S01" in text and "FASTQC" in text

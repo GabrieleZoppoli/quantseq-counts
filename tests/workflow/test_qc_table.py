@@ -75,3 +75,18 @@ def test_first_page_standard(tmp_path):
     d = setup(tmp_path); (d / "changes.tsv").write_text("setting\tstandard\tthis_run\n")
     out, _ = run(d)
     assert "the standard settings" in (out / "summary_mqc.html").read_text()
+
+
+def test_prefix_names_read_their_own_report(tmp_path):
+    d = tmp_path / "in"; d.mkdir()
+    for s, n in (("P1", 1000), ("P1_T2", 5000)):
+        (d / f"{s}.Log.final.out").write_text(STAR.format(inp=n, uni=n // 2, multi=0))
+        (d / f"{s}_trimmed.fastq.gz_trimming_report.txt").write_text(TRIM.format(n=n, short=0))
+        (d / f"{s}.umi_dedup.sorted.bam.flagstat").write_text(FLAG.format(d=n // 4))
+    # P1_T2's report listed first, as some file systems do
+    (d / "screen.tsv").write_text(SCREEN_H + "P1\t1000\t75\t0\t900\t0\t0\nP1_T2\t5000\t75\t0\t4500\t0\t0\n")
+    (d / "featurecounts.txt.summary").write_text("Status\tP1.bam\tP1_T2.bam\nAssigned\t10\t20\n")
+    (d / "thresholds.json").write_text("{}")
+    (d / "changes.tsv").write_text("setting\tstandard\tthis_run\n")
+    _, rows = run(d)
+    assert {r["library"]: r["trimmed"] for r in rows} == {"P1": "1000", "P1_T2": "5000"}

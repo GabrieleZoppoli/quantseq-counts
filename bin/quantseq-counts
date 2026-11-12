@@ -5,13 +5,19 @@ src="${BASH_SOURCE[0]}"
 while [ -L "$src" ]; do d="$(cd "$(dirname "$src")" && pwd)"; src="$(readlink "$src")"; case "$src" in /*) ;; *) src="$d/$src" ;; esac; done
 PREFIX="$(cd "$(dirname "$src")/.." && pwd)"
 OWN="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$PREFIX/src/quantseq_counts/__init__.py")"
-# a version installed beside this one by `quantseq-counts update`: --use VERSION for one call, else CURRENT
+# Versions installed by `quantseq-counts update` live in ROOT/versions/<version>; ROOT is the first installation.
+# --use VERSION runs any of them for one call; CURRENT (in ROOT) is followed only when ROOT's own copy is called.
+ROOT="$PREFIX"; CHILD=0
+if [ "$(basename "$(dirname "$PREFIX")")" = versions ]; then ROOT="$(cd "$PREFIX/../.." && pwd)"; CHILD=1; fi
 WANT=""
-if [ "${1:-}" = "--use" ]; then WANT="${2:-}"; shift 2; elif [ -f "$PREFIX/CURRENT" ]; then WANT="$(cat "$PREFIX/CURRENT")"; fi
+if [ "${1:-}" = "--use" ]; then WANT="${2:-}"; shift 2
+elif [ $CHILD -eq 0 ] && [ -z "${QUANTSEQ_COUNTS_NO_FOLLOW:-}" ] && [ -f "$ROOT/CURRENT" ]; then WANT="$(cat "$ROOT/CURRENT")"; fi
 if [ -n "$WANT" ] && [ "$WANT" != "$OWN" ]; then
-  [ -x "$PREFIX/versions/$WANT/bin/quantseq-counts" ] || { echo "quantseq-counts $WANT is not installed in $PREFIX/versions/" >&2; exit 2; }
-  exec "$PREFIX/versions/$WANT/bin/quantseq-counts" "$@"
+  if [ -x "$ROOT/versions/$WANT/bin/quantseq-counts" ]; then exec "$ROOT/versions/$WANT/bin/quantseq-counts" "$@"; fi
+  if [ $CHILD -eq 1 ] && [ "$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' "$ROOT/src/quantseq_counts/__init__.py")" = "$WANT" ]; then
+    QUANTSEQ_COUNTS_NO_FOLLOW=1 exec "$ROOT/bin/quantseq-counts" "$@"; fi
+  echo "quantseq-counts $WANT is not installed in $ROOT/versions/" >&2; exit 2
 fi
 PY="$PREFIX/env/bin/python"; [ -x "$PY" ] || PY="$(command -v python3)"
-export QUANTSEQ_COUNTS_HOME="$PREFIX" PYTHONPATH="$PREFIX/src${PYTHONPATH:+:$PYTHONPATH}"
+export QUANTSEQ_COUNTS_HOME="$PREFIX" QUANTSEQ_COUNTS_ROOT="$ROOT" PYTHONPATH="$PREFIX/src${PYTHONPATH:+:$PYTHONPATH}"
 exec "$PY" -m quantseq_counts "$@"

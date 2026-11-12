@@ -32,3 +32,6 @@ SUBREAD_FEATURECOUNTS	contains	-s 1	executed in the reference run
 SAMTOOLS_SORT_QUALIMAP	contains	-n	executed in the reference run
 QUALIMAP_RNASEQ	contains	--sorted	executed in the reference run
 QUALIMAP_RNASEQ	contains	-p strand-specific-forward	executed in the reference run
+FEATURECOUNTS_MAIN	contains	featureCounts -s 1 -t exon -g gene_id	executed in the reference run (main counts)
+FEATURECOUNTS_MAIN	absent	 -M 	unique alignments only
+FEATURECOUNTS_MAIN	absent	 -O 	a read overlapping two genes not counted

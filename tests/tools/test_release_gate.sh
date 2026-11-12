@@ -30,4 +30,17 @@ bash "$HERE/tools/release_gate.sh" --install "$T/inst" --settings "$T/base.yaml"
 sed -i.bak 's/if \[ "\$det" = false \] && \[ -n "\$extra" \]/if false/' "$T/inst/bin/quantseq-counts"; rm -rf "$T/g"
 bash "$HERE/tools/release_gate.sh" --install "$T/inst" --settings "$T/base.yaml" --out "$T/g" --runs A,C,D1,D2 > "$T/o" 2>&1; rc=$?
 [ $rc -eq 1 ] && grep -q "control" "$T/o" && ok "control without difference: gate fails" || { ko "control without difference"; cat "$T/o"; }
+# a control that differs only in counts.tsv, not in the reads kept, does not show the gate works
+cat > "$T/inst/bin/quantseq-counts" <<'FAKE2'
+#!/usr/bin/env bash
+s=""; extra=""; while [ $# -gt 0 ]; do case "$1" in --settings) s="$2"; shift 2;; --extra-config) extra="$2"; shift 2;; *) shift;; esac; done
+out=$(sed -n "s/^outdir: '\(.*\)'$/\1/p" "$s"); det=$(sed -n 's/^deterministic_sort: //p' "$s")
+mkdir -p "$out/run/intermediate" "$out/qc"; printf 'x' > "$out/counts.rds"; printf 'q\n' > "$out/qc/samples.tsv"
+if [ "$det" = false ] && [ -n "$extra" ]; then printf 'g\t2\n' > "$out/counts.tsv"; else printf 'g\t1\n' > "$out/counts.tsv"; fi
+printf 'r1\n' > "$out/run/intermediate/S1.sorted.bam"; printf 'r1\n' > "$out/run/intermediate/S1.umi_dedup.sorted.bam"
+printf '@r\nA\n+\nI\n' | gzip -c > "$out/run/intermediate/S1_trimmed_trimmed.fq.gz"
+FAKE2
+chmod +x "$T/inst/bin/quantseq-counts"; rm -rf "$T/g"
+bash "$HERE/tools/release_gate.sh" --install "$T/inst" --settings "$T/base.yaml" --out "$T/g" --runs A,C,D1,D2 > "$T/o" 2>&1; rc=$?
+[ $rc -eq 1 ] && grep -q "control" "$T/o" && grep -q $'^D1_vs_D2\tdifferent' "$T/g/gate.tsv" && ok "control differing only in counts: gate fails" || { ko "control differing only in counts"; cat "$T/o"; }
 [ $fail -eq 0 ] && echo "RESULT: PASS" || { echo "RESULT: FAIL"; exit 1; }

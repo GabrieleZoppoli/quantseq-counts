@@ -4,7 +4,7 @@ of the quality report (summary_mqc.html) for the biologist: libraries passed and
 the settings that differ from the standard. Python standard library only.
 Usage: qc_table.py --dir FOLDER --library fwd_umi|fwd_no_umi --thresholds thresholds.json --changes changes.tsv
                    --excluded excluded.tsv --out OUTDIR
-FOLDER holds <lib>.Log.final.out, <lib>*_trimming_report.txt, <lib>.umi_dedup.sorted.bam.flagstat (UMI mode),
+FOLDER holds <lib>.Log.final.out, <lib>_trimmed.fastq.gz_trimming_report.txt, <lib>.umi_dedup.sorted.bam.flagstat (UMI mode),
 screen.tsv and featurecounts.txt.summary."""
 import argparse
 import html
@@ -61,7 +61,7 @@ def main():
         sc = screen[lib]
         raw = int(sc["reads"])
         uni, multi = star(d / f"{lib}.Log.final.out")
-        trim = trimmed(next(d.glob(f"{lib}_*trimming_report.txt")))
+        trim = trimmed(d / f"{lib}_trimmed.fastq.gz_trimming_report.txt")
         dedup = flagstat_primary(d / f"{lib}.umi_dedup.sorted.bam.flagstat") if umi else None
         f = fc[lib]
         total_fc = sum(f.values()) or 1

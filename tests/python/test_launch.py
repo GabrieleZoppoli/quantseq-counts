@@ -118,4 +118,44 @@ J
     s = base(tmp_path, engine="docker")
     procs = launch.inspect_processes(s, rd, inst, dict(os.environ))
     launch.write_containers(procs, rd)
-    assert (rd / "containers.tsv").read_text() == "process\tcontainer\nDOWNLOAD_REFERENCE\tnone (runs on the host)\nFASTQC\tq.io/f:2\nSTAR_ALIGN\tc.io/lib/star:1\n"
+    assert (rd / "containers.tsv").read_text() == "process\tcontainer\tdigest\nDOWNLOAD_REFERENCE\tnone (runs on the host)\t\nFASTQC\tq.io/f:2\t\nSTAR_ALIGN\tc.io/lib/star:1\t\n"
+
+
+def test_run_samples_written_canonical(tmp_path):
+    raw = tmp_path / "pasted.csv"
+    raw.write_bytes("﻿Sample\tFASTQ\tGroup\r\nA1 \t a1.fastq.gz\tcase\r\n\r\n".encode("utf-8"))
+    rd = tmp_path / "run"
+    launch.write_run_files(base(tmp_path), raw, rd, ["/srv"])
+    assert (rd / "samples.csv").read_text() == "sample,fastq,group\nA1,a1.fastq.gz,case\n"
+
+
+def _store(ud, name, tag, config, layers):
+    d = ud / "repos" / name / tag; d.mkdir(parents=True, exist_ok=True)
+    import json as _j
+    (d / "manifest").write_text(_j.dumps({"config": {"digest": config}, "layers": [{"digest": x} for x in layers]}))
+
+
+def test_udocker_checks_pins_and_skips_present(tmp_path):
+    inst = tmp_path / "inst"; (inst / "env" / "bin").mkdir(parents=True)
+    log = tmp_path / "calls.txt"
+    _fake(inst / "env" / "bin" / "udocker", f'echo "$@" >> {log}\nexit 0\n')
+    ud = tmp_path / "ud"
+    s = base(tmp_path, engine="udocker", udocker_dir=str(ud))
+    rd = tmp_path / "run"; rd.mkdir()
+    env = launch.engine_env(s, rd, inst)
+    pins = {"biocontainers/a:1": {"config_digest": "sha256:c1", "layer_digests": "sha256:l1;sha256:l2"},
+            "community.wave.seqera.io/library/b:2": {"config_digest": "sha256:c2", "layer_digests": "sha256:l3"}}
+    _store(ud, "biocontainers/a", "1", "sha256:c1", ["sha256:l1", "sha256:l2"])          # present and right
+    _store(ud, "community.wave.seqera.io/library/b", "2", "sha256:cX", ["sha256:l3"])    # present, wrong config
+    failed = launch.udocker_pull(["biocontainers/a:1", "community.wave.seqera.io/library/b:2"], env, rd, pins)
+    calls = log.read_text() if log.exists() else ""
+    assert "pull biocontainers/a:1" not in calls
+    assert failed == ["community.wave.seqera.io/library/b:2"]
+    assert "digest" in (rd / "images.log").read_text()
+
+
+def test_pins_table_loaded():
+    from pathlib import Path
+    pins = launch.load_pins(Path(__file__).resolve().parents[2])
+    assert "biocontainers/fastqc:0.12.1--hdfd78af_0" in pins
+    assert pins["biocontainers/fastqc:0.12.1--hdfd78af_0"]["digest"].startswith("sha256:")

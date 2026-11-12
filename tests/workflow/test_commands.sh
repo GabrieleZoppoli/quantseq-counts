@@ -25,7 +25,7 @@ tail -n +2 "$HERE/tests/workflow/expected_args.tsv" | while IFS=$'\t' read -r pr
   if [ "$LIB" = fwd_no_umi ] && { [ "$proc" = UMITOOLS_EXTRACT ] || [ "$proc" = UMICOLLAPSE ]; }; then
     grep -q "^### name: '$proc (" "$T"/out/work/*/*/.command.run 2>/dev/null && echo "FAIL - $proc ran in the no-UMI mode" || echo "ok - no $proc in the no-UMI mode"
     continue; fi
-  scripts=$(grep -l "^### name: '\(.*:\)\{0,1\}$proc (" "$T"/out/work/*/*/.command.run 2>/dev/null | sed 's/\.command\.run$/.command.sh/')
+  scripts=$(grep -l "^### name: '\(.*:\)\{0,1\}$proc\( (\|'\)" "$T"/out/work/*/*/.command.run 2>/dev/null | sed 's/\.command\.run$/.command.sh/')
   [ -n "$scripts" ] || { echo "FAIL - $proc ran"; continue; }
   bad=0; for s in $scripts; do if grep -qF -- "$text" "$s"; then [ "$kind" = absent ] && bad=1; else [ "$kind" = contains ] && bad=1; fi; done
   [ $bad -eq 0 ] && echo "ok - $proc $kind: $text" || echo "FAIL - $proc $kind: $text"

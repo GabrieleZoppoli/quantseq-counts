@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 from . import __version__
+from . import samples as samples_mod
 from . import settings as st
 
 PROFILE_MOUNT = {"apptainer": "-B {p}", "udocker": "-v {p}", "docker": "-v {p}:{p}"}
@@ -77,7 +78,9 @@ def _cell(v) -> str:
 def write_run_files(s: dict, samples_file: Path, run_dir: Path, mounts: list[str]) -> dict:
     """Writes run/settings.yaml (every setting, as run), run/samples.csv, run/changes.tsv, run/run.config."""
     run_dir.mkdir(parents=True, exist_ok=True)
-    (run_dir / "samples.csv").write_bytes(Path(samples_file).read_bytes())
+    # the run reads this copy (Nextflow, R, bug-report): written from the parsed rows, in one plain form
+    rows = samples_mod.read_samples(Path(samples_file))
+    (run_dir / "samples.csv").write_text("sample,fastq,group\n" + "".join(f"{r.name},{r.fastq},{r.group or ''}\n" for r in rows))
     as_run = st.with_defaults(s)
     as_run["samples"] = str(run_dir / "samples.csv")
     (run_dir / "settings.yaml").write_text(st.dump_settings(as_run))
@@ -108,8 +111,15 @@ def inspect_containers(s: dict, run_dir: Path, install: Path, env: dict) -> list
     return sorted({c for _p, c in inspect_processes(s, run_dir, install, env) if c})
 
 
-def write_containers(procs: list[tuple[str, str | None]], run_dir: Path) -> None:
-    rows = ["process\tcontainer"] + [f"{p}\t{c or 'none (runs on the host)'}" for p, c in sorted(procs)]
+def write_containers(procs: list[tuple[str, str | None]], run_dir: Path, pins: dict | None = None) -> None:
+    pins = pins or {}
+    def dig(c):
+        if not c:
+            return ""
+        if "@sha256:" in c:
+            return c.split("@", 1)[1]
+        return pins.get(_norm(c), {}).get("digest", "")
+    rows = ["process\tcontainer\tdigest"] + [f"{p}\t{c or 'none (runs on the host)'}\t{dig(c)}" for p, c in sorted(procs)]
     (run_dir / "containers.tsv").write_text("\n".join(rows) + "\n")
 
 
@@ -123,13 +133,44 @@ def inspect_processes(s: dict, run_dir: Path, install: Path, env: dict) -> list[
     return [(p["name"].split(":")[-1], p.get("container")) for p in data["processes"]]
 
 
-def udocker_pull(images: list[str], env: dict, run_dir: Path) -> list[str]:
-    """Pulls and verifies each image in turn with udocker (concurrent pulls by Nextflow fail); returns the failures."""
+def _norm(img: str) -> str:
+    return img[len("quay.io/"):] if img.startswith("quay.io/") else img
+
+
+def load_pins(install: Path) -> dict:
+    """workflow/assets/containers.tsv: for each image (without 'quay.io/'), its pinned digest, config and layers."""
+    f = Path(install) / "workflow" / "assets" / "containers.tsv"
+    rows = [l.split("\t") for l in f.read_text().splitlines()]
+    return {_norm(r[0]): dict(zip(rows[0], r)) for r in rows[1:]}
+
+
+def _stored_matches(udocker_dir: Path, img: str, pin: dict) -> bool | None:
+    """None when the image is not in udocker's store; else whether its manifest has the pinned config and layers."""
+    name, _, tag = img.rpartition(":")
+    mf = udocker_dir / "repos" / name / tag / "manifest"
+    if not mf.exists():
+        return None
+    try:
+        m = json.loads(mf.read_text())
+        layers = ";".join(l["digest"] for l in m.get("layers", []))
+        return m["config"]["digest"] == pin["config_digest"] and layers == pin["layer_digests"]
+    except (ValueError, KeyError):
+        return False
+
+
+def udocker_pull(images: list[str], env: dict, run_dir: Path, pins: dict | None = None) -> list[str]:
+    """Pulls and verifies each image in turn with udocker (concurrent pulls by Nextflow fail), unless it is already in
+    the store with the pinned digests; checks every image against its pin; returns the failures."""
     ud = env["PATH"].split(os.pathsep)[0] + "/udocker.py"
     ud = ud if os.access(ud, os.X_OK) else "udocker"
+    store = Path(env.get("UDOCKER_DIR", ""))
     failed = []
     with open(run_dir / "images.log", "a") as log:
         for img in images:
+            pin = (pins or {}).get(_norm(img))
+            if pin and _stored_matches(store, img, pin):
+                log.write(f"{img}: in the store with the pinned digests; not pulled\n")
+                continue
             r = subprocess.run([ud, "pull", img], env=env, capture_output=True, text=True)
             log.write(f"pull {img}: exit {r.returncode}\n{r.stdout[-2000:]}{r.stderr[-2000:]}\n")
             ok = r.returncode == 0
@@ -140,6 +181,9 @@ def udocker_pull(images: list[str], env: dict, run_dir: Path) -> list[str]:
                     # udocker cannot verify some images (pruned layers); check each stored layer against its digest
                     ok = _blobs_match(Path(env["UDOCKER_DIR"]), img)
                     log.write(f"layer checksums of {img} against their digests: {'all equal' if ok else 'FAIL'}\n")
+            if ok and pin:
+                ok = bool(_stored_matches(store, img, pin))
+                log.write(f"{img}: config and layer digests {'equal to' if ok else 'DIFFERENT from'} the pinned image\n")
             if not ok:
                 failed.append(img)
     return failed

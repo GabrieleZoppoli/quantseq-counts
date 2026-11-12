@@ -73,6 +73,13 @@ def trimmedReads(log_file) {  // as nf-core/rnaseq 3.26.0 (fastq_fastqc_umitools
     return total - filtered
 }
 
+// run/DONE marks a run that ended without error: `quantseq-counts run` refuses an output folder that holds one
+workflow.onComplete = {
+    if (workflow.success) {
+        file("${params.outdir}/run/DONE").text = "quantseq-counts ${params.package_version} run ${params.run_name} ended ${workflow.complete}\n"
+    }
+}
+
 workflow {
     def umi = params.library == 'fwd_umi'
 

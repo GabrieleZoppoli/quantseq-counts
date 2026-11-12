@@ -25,4 +25,7 @@ bash "$HERE/tools/compare_runs.sh" "$T/a" "$T/b" > "$T/o"; rc=$?
 mk "$T/b"; printf '@PG\nr1\n' > "$T/b/run/intermediate/S2.sorted.bam"
 bash "$HERE/tools/compare_runs.sh" "$T/a" "$T/b" > "$T/o"; rc=$?
 [ $rc -eq 1 ] && grep -q "MISSING.*S2.sorted.bam" "$T/o" && ok "a file only in the second run: exit 1" || ko "a file only in the second run"
+mk "$T/c"; mk "$T/d"; printf 'r9\n' > "$T/d/run/intermediate/S1.umi_dedup.sorted.bam"
+SAMTOOLS=false bash "$HERE/tools/compare_runs.sh" "$T/c" "$T/d" > "$T/o" 2>&1; rc=$?
+[ $rc -eq 2 ] && grep -q "ERROR" "$T/o" && ok "samtools not working: exit 2, never same" || { ko "samtools not working"; cat "$T/o"; }
 [ $fail -eq 0 ] && echo "RESULT: PASS" || { echo "RESULT: FAIL"; exit 1; }

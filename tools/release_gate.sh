@@ -39,6 +39,7 @@ done
 cmp_pair() {  # name a b expect(same|different)
   [ -d "$OUT/$2/out" ] && [ -d "$OUT/$3/out" ] || return 0
   bash "$INST/tools/compare_runs.sh" "$OUT/$2/out" "$OUT/$3/out" > "$OUT/$1.tsv"; local rc=$?
+  [ $rc -eq 2 ] && { echo "ERROR: $1 could not be compared" >&2; exit 2; }
   local res; res=$([ $rc -eq 0 ] && echo same || echo different)
   printf '%s\t%s\t%s\t%s\n' "$1" "$res" "$(wc -l < "$OUT/$1.tsv" | tr -d ' ')" "$(grep -vc '^same' "$OUT/$1.tsv")"
 }
@@ -47,7 +48,7 @@ cat "$OUT/gate.tsv"
 bad=0
 grep -q $'^A_vs_C\tdifferent' "$OUT/gate.tsv" && { echo "FAIL: A and C differ (thread counts): see $OUT/A_vs_C.tsv"; bad=1; }
 grep -q $'^A_vs_B\tdifferent' "$OUT/gate.tsv" && { echo "FAIL: A and B differ (another day): see $OUT/A_vs_B.tsv"; bad=1; }
-if grep -q $'^D1_vs_D2\tsame' "$OUT/gate.tsv"; then
-  echo "FAIL: the control (sort off, two thread counts) shows no difference, so this gate cannot show that it detects one"; bad=1; fi
+if [ -s "$OUT/D1_vs_D2.tsv" ] && ! grep -q $'^DIFFERENT\t.*\.umi_dedup\.sorted\.bam$' "$OUT/D1_vs_D2.tsv"; then
+  echo "FAIL: the control (sort off, two thread counts) kept the same reads, so this gate cannot show that it detects a change"; bad=1; fi
 [ $bad -eq 0 ] && echo "GATE: PASS" || echo "GATE: FAIL"
 exit $bad

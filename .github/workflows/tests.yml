@@ -16,6 +16,7 @@ jobs:
           bash tests/tools/test_leak_check.sh
           bash tests/tools/test_wrapper.sh
           bash tests/tools/test_versions_switch.sh
+          bash tests/tools/test_versions_layout.sh
           SAMTOOLS="$RUNNER_TEMP/qc/env/bin/samtools" bash tests/tools/test_compare_runs.sh
           bash tests/tools/test_release_gate.sh
       - name: Form page
@@ -23,6 +24,7 @@ jobs:
       - name: Stub runs of the workflow
         run: |
           for m in fwd_umi fwd_no_umi fwd_no_umi_dedup; do NXF="$RUNNER_TEMP/qc/bin/nextflow" bash tests/workflow/test_stub.sh $m; done
+          NXF="$RUNNER_TEMP/qc/bin/nextflow" bash tests/workflow/test_pins.sh
       - name: QC table and R outputs
         run: |
           "$RUNNER_TEMP/qc/env/bin/python" -m pytest -q tests/workflow/test_qc_table.py

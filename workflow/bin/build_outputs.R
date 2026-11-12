@@ -5,11 +5,11 @@
 # equal counts give equal files.
 # Usage: build_outputs.R --fc featurecounts.txt --gtf genes.gtf --samples samples.csv --excluded excluded.tsv
 #                        --version X.Y.Z --out DIR
+invisible(Sys.setlocale("LC_ALL", "C"))  # the RDS header records the locale's encoding: fix it, so equal counts give equal bytes
 suppressPackageStartupMessages(library(SummarizedExperiment))
 a <- commandArgs(trailingOnly = TRUE)
 arg <- function(k) { i <- match(paste0("--", k), a); if (is.na(i)) stop("missing --", k); a[i + 1] }
 out <- arg("out"); dir.create(out, showWarnings = FALSE, recursive = TRUE)
-invisible(Sys.setlocale("LC_COLLATE", "C"))
 
 fc <- read.delim(arg("fc"), comment.char = "#", check.names = FALSE, colClasses = "character")
 libs <- sub("\\.bam$", "", colnames(fc)[-(1:6)])
@@ -20,6 +20,7 @@ excluded <- if (file.exists(ex_file) && file.size(ex_file) > 0) read.delim(ex_fi
 keep <- samples$sample[samples$sample %in% libs]
 missing <- setdiff(samples$sample, c(libs, excluded$sample))
 if (length(missing)) stop("libraries in the sample list but neither counted nor excluded: ", paste(missing, collapse = ", "))
+if (!length(keep)) stop("no library of the sample list was counted (the featureCounts columns are ", paste(libs, collapse = ", "), ")")
 
 # genes from the exon lines (the filtered GTF of the run keeps no gene lines), in order of first appearance
 gtf <- read.delim(arg("gtf"), header = FALSE, comment.char = "#", colClasses = "character", quote = "")

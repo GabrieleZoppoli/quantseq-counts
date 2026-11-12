@@ -31,9 +31,10 @@ def study(tmp_path):
 
 @pytest.fixture(autouse=True)
 def no_image_pulls(monkeypatch):
+    monkeypatch.setattr(cli.launch, "load_pins", lambda install: {})
     monkeypatch.setattr(cli.update, "notice", lambda: None)
     monkeypatch.setattr(cli.launch, "inspect_processes", lambda s, rd, inst, env: [("P", "x/y:1")])
-    monkeypatch.setattr(cli.launch, "udocker_pull", lambda images, env, rd: [])
+    monkeypatch.setattr(cli.launch, "udocker_pull", lambda images, env, rd, pins=None: [])
 
 
 def run(study, *extra):
@@ -61,11 +62,18 @@ def test_run_stops_on_invalid_settings(study, capsys):
 
 
 def test_refuses_finished_outdir(study, capsys):
-    (study / "out").mkdir(); (study / "out" / "counts.tsv").write_text("x")
+    rd = study / "out" / "run"; rd.mkdir(parents=True)
+    (rd / "DONE").write_text("finished")
     assert run(study, "--dry-run") == 3
     assert run(study, "--dry-run", "--resume") == 3
-    (study / "out" / "counts.tsv").unlink(); (study / "out" / "run").mkdir()
-    assert run(study, "--dry-run") == 3
+    (rd / "DONE").unlink()
+    assert run(study, "--dry-run") == 3          # an unfinished run is there: --resume or another outdir
+    assert run(study, "--dry-run", "--resume") == 0
+
+
+def test_counts_without_done_can_resume(study):
+    rd = study / "out" / "run"; rd.mkdir(parents=True)
+    (study / "out" / "counts.tsv").write_text("x")  # published before QC failed
     assert run(study, "--dry-run", "--resume") == 0
 
 
@@ -95,7 +103,7 @@ def test_run_writes_run_files(study, monkeypatch):
     rd = study / "out" / "run"
     written = yaml.safe_load((rd / "settings.yaml").read_text())
     assert written["library"] == "fwd_umi" and written["samples"] == str(rd / "samples.csv")
-    assert (rd / "samples.csv").read_text() == (study / "samples.csv").read_text()
+    assert (rd / "samples.csv").read_text() == "sample,fastq,group\nA,a.fastq.gz,\nB,b.fastq.gz,\n"
     assert (rd / "changes.tsv").read_text() == "setting\tstandard\tthis_run\nengine\tapptainer\tudocker\n"
     assert calls and calls[0][1] == rd
 
@@ -139,7 +147,7 @@ def test_run_foreground_logs(tmp_path):
 
 
 def test_failed_pull_stops(study, monkeypatch, capsys):
-    monkeypatch.setattr(cli.launch, "udocker_pull", lambda images, env, rd: ["x/y:1"])
+    monkeypatch.setattr(cli.launch, "udocker_pull", lambda images, env, rd, pins=None: ["x/y:1"])
     monkeypatch.setattr(cli.launch, "start", lambda *a: pytest.fail("must not start"))
     assert run(study) == 2
     assert "x/y:1" in capsys.readouterr().err
@@ -151,3 +159,25 @@ def test_extra_config_appended(study, capsys, tmp_path):
     argv = json.loads(capsys.readouterr().out.strip().splitlines()[-1])
     i = [k for k, a in enumerate(argv) if a == "-c"]
     assert len(i) == 2 and argv[i[1] + 1] == str(extra) and i[1] > i[0]
+
+
+def test_paths_absolute_from_the_settings_folder(study, monkeypatch):
+    monkeypatch.setattr(cli.launch, "start", lambda argv, env, run_dir: 1)
+    monkeypatch.setenv("HOME", str(study / "home"))
+    s = yaml.safe_load((study / "settings.yaml").read_text())
+    s.update({"reference_dir": "refs", "fastq_dir": "fq", "outdir": "~/out2"})
+    (study / "settings.yaml").write_text(yaml.safe_dump(s))
+    monkeypatch.chdir(study.parent)               # the shell is elsewhere: paths follow the settings file
+    assert run(study) == 0
+    w = yaml.safe_load((study / "home" / "out2" / "run" / "settings.yaml").read_text())
+    assert w["reference_dir"] == str(study / "refs") and w["fastq_dir"] == str(study / "fq")
+    assert w["outdir"] == str(study / "home" / "out2")
+
+
+def test_missing_custom_reference_stops(study, capsys):
+    s = yaml.safe_load((study / "settings.yaml").read_text())
+    s.update({"reference": "custom", "fasta": str(study / "nope.fa.gz"), "gtf": str(study / "nope.gtf.gz")})
+    (study / "settings.yaml").write_text(yaml.safe_dump(s))
+    assert run(study, "--dry-run") == 2
+    err = capsys.readouterr().err
+    assert "nope.fa.gz" in err and "nope.gtf.gz" in err

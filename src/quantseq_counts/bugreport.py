@@ -12,15 +12,23 @@ import tarfile
 import time
 from pathlib import Path
 
+QUOTED_PATH = re.compile(r"""(['"])/[^'"\n]*\1""")  # whole quoted paths, spaces included
 PATH = re.compile(r"(?<![\w.])/(?:[^\s'\"`:;,()\[\]{}<>]+)")
 
 
 def _scrubber(run_dir: Path):
-    names = []
+    rows = []
     sfile = run_dir / "samples.csv"
     if sfile.exists():
-        names = [r["sample"] for r in csv.DictReader(io.StringIO(sfile.read_text(encoding="utf-8-sig")))]
-    subs = sorted(((n, f"S{i:02d}") for i, n in enumerate(names, 1)), key=lambda x: -len(x[0]))
+        rows = list(csv.DictReader(io.StringIO(sfile.read_text(encoding="utf-8-sig"))))
+    pairs = []
+    for i, r in enumerate(rows, 1):
+        tag = f"S{i:02d}"
+        pairs.append((r.get("sample", ""), tag))
+        fq = Path(r.get("fastq", "")).name
+        stem = re.sub(r"(\.fastq|\.fq)(\.gz)?$", "", fq)
+        pairs += [(fq, f"{tag}.fastq.gz"), (stem, tag)]
+    subs = sorted((p for p in pairs if p[0]), key=lambda x: -len(x[0]))
     settings = (run_dir / "settings.yaml").read_text() if (run_dir / "settings.yaml").exists() else ""
     m = re.search(r"^run_name:\s*'?([^'\n]+)'?", settings, re.M)
     run_name = m.group(1).strip() if m else None
@@ -28,9 +36,10 @@ def _scrubber(run_dir: Path):
     user = getpass.getuser()
 
     def scrub(text: str) -> str:
+        text = QUOTED_PATH.sub(lambda m: m.group(1) + "<path>" + m.group(1), text)
         text = PATH.sub("<path>", text)
         for n, s in subs:
-            text = re.sub(rf"(?<![A-Za-z0-9]){re.escape(n)}(?![A-Za-z0-9])", s, text)
+            text = re.sub(rf"(?<![A-Za-z0-9]){re.escape(n)}(?![A-Za-z0-9])", s, text) if re.match(r"^\w", n) and re.search(r"\w$", n) else text.replace(n, s)
         if run_name:
             text = text.replace(run_name, "<run>")
         for h in sorted(hosts, key=len, reverse=True):
