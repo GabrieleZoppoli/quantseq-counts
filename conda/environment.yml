@@ -4,9 +4,11 @@
 name: quantseq-counts
 channels:
   - conda-forge
+  - bioconda
 dependencies:
   - python=3.12
   - pyyaml
   - pytest
   - openjdk=17
+  - samtools=1.23.1  # for the release checks (tools/compare_runs.sh)
   - udocker=1.3.9  # linux-64 only

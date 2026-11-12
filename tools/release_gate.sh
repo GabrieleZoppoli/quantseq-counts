@@ -15,6 +15,7 @@ while [ $# -gt 0 ]; do case "$1" in
 [ -n "$INST" ] && [ -f "$BASE" ] && [ -n "$OUT" ] || { echo "usage: release_gate.sh --install PREFIX --settings BASE.yaml --out OUT [--runs ...]" >&2; exit 2; }
 mkdir -p "$OUT"; OUT="$(cd "$OUT" && pwd)"
 ALT="$INST/workflow/conf/threads_alt.config"
+[ -x "$INST/env/bin/samtools" ] && export SAMTOOLS="${SAMTOOLS:-$INST/env/bin/samtools}"
 for r in ${RUNS//,/ }; do
   [ -d "$OUT/$r/out" ] && { echo "$OUT/$r already holds a run: the gate needs fresh runs" >&2; exit 2; }
   mkdir -p "$OUT/$r"

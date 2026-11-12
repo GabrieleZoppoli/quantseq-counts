@@ -10,6 +10,7 @@ bash "$HERE/install.sh" --prefix "$P" > "$P.install.log" 2>&1 && ok "install.sh 
 out="$("$P/bin/quantseq-counts" --version 2>&1)"; [ "$out" = "quantseq-counts $v" ] && ok "quantseq-counts --version" || ko "quantseq-counts --version ($out)"
 out="$("$P/bin/nextflow" -version 2>&1)"; printf '%s' "$out" | grep -q "version 25.04.8" && ok "nextflow 25.04.8" || ko "nextflow 25.04.8 ($out)"
 "$P/env/bin/python" -c "import yaml" && ok "python with PyYAML from the lock" || ko "python with PyYAML"
+"$P/env/bin/samtools" --version 2>/dev/null | head -1 | grep -q "samtools 1.23.1" && ok "samtools 1.23.1" || ko "samtools 1.23.1"
 if [ "$(uname -s)" = Linux ]; then UDOCKER_DIR="$P/udocker" "$P/env/bin/udocker" --help >/dev/null 2>&1 && ok "udocker present" || ko "udocker present"; fi
 [ "$(cat "$P/VERSION" 2>/dev/null)" = "$v" ] && ok "VERSION file" || ko "VERSION file"
 ( cd "$P" && "$P/env/bin/python" -m pytest -q -p no:cacheprovider tests/python > "$P.pytest.log" 2>&1 ) && ok "unit tests pass with the installed Python" || { ko "unit tests"; tail -5 "$P.pytest.log"; }
