@@ -1,0 +1,3 @@
+{"run_name": "pilot_2026", "fastq_dir": "@FASTQ_DIR@", "library": "fwd_umi", "reference": "ensembl_115",
+ "reference_dir": "/srv/quantseq/reference", "outdir": "/srv/quantseq/pilot_2026", "engine": "apptainer",
+ "executor": "local", "max_cpus": 12, "max_memory": "96 GB"}

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# quantseq-counts: runs the package of the folder this script lives in (installation or working copy).
+set -euo pipefail
+src="${BASH_SOURCE[0]}"
+while [ -L "$src" ]; do d="$(cd "$(dirname "$src")" && pwd)"; src="$(readlink "$src")"; case "$src" in /*) ;; *) src="$d/$src" ;; esac; done
+PREFIX="$(cd "$(dirname "$src")/.." && pwd)"
+PY="$PREFIX/env/bin/python"; [ -x "$PY" ] || PY="$(command -v python3)"
+export QUANTSEQ_COUNTS_HOME="$PREFIX" PYTHONPATH="$PREFIX/src${PYTHONPATH:+:$PYTHONPATH}"
+exec "$PY" -m quantseq_counts "$@"

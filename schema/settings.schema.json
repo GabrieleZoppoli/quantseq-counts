@@ -93,12 +93,6 @@
         "docker"
       ]
     },
-    "udocker_dir": {
-      "type": "path",
-      "default": null,
-      "help": "Folder where udocker keeps its images (empty: inside the installation).",
-      "group": "advanced"
-    },
     "executor": {
       "type": "string",
       "default": "local",
@@ -137,6 +131,12 @@
       "default": null,
       "help": "SLURM account to charge, if your cluster asks for one.",
       "group": "basic"
+    },
+    "udocker_dir": {
+      "type": "path",
+      "default": null,
+      "help": "Folder where udocker keeps its images (empty: inside the installation).",
+      "group": "advanced"
     },
     "umi_pattern": {
       "type": "string",

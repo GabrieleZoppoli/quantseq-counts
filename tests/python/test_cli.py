@@ -1,0 +1,119 @@
+import gzip
+import json
+from pathlib import Path
+
+import pytest
+import yaml
+
+from quantseq_counts import __version__, cli
+from quantseq_counts import settings as st
+
+FIX = Path(__file__).parent / "fixtures"
+
+
+def fastq(path, seq="AAAAAATATAGGGGCCCC", n=20):
+    with gzip.open(path, "wt") as f:
+        f.write("".join(f"@r{i}\n{seq}\n+\n{'I' * len(seq)}\n" for i in range(n)))
+
+
+@pytest.fixture
+def study(tmp_path):
+    fq = tmp_path / "fq"; fq.mkdir()
+    fastq(fq / "a.fastq.gz"); fastq(fq / "b.fastq.gz")
+    (tmp_path / "samples.csv").write_text("sample,fastq\nA,a.fastq.gz\nB,b.fastq.gz\n")
+    s = {"package_version": __version__, "run_name": "t1", "fastq_dir": str(fq),
+         "samples": str(tmp_path / "samples.csv"), "outdir": str(tmp_path / "out"),
+         "reference_dir": str(tmp_path / "ref"), "engine": "udocker"}
+    (tmp_path / "settings.yaml").write_text(yaml.safe_dump(s))
+    return tmp_path
+
+
+def run(study, *extra):
+    return cli.main(["run", "--settings", str(study / "settings.yaml"), "--samples", str(study / "samples.csv"),
+                     "--install", str(study / "install"), "--yes", *extra])
+
+
+def test_version(capsys):
+    assert cli.main(["--version"]) == 0
+    assert __version__ in capsys.readouterr().out
+
+
+def test_run_stops_on_mismatch(study, capsys):
+    (study / "samples.csv").write_text("sample,fastq\nA,a.fastq.gz\nC,c.fastq.gz\n")
+    assert run(study, "--dry-run") == 2
+    assert "c.fastq.gz" in capsys.readouterr().err
+    assert not (study / "out").exists()
+
+
+def test_run_stops_on_invalid_settings(study, capsys):
+    s = yaml.safe_load((study / "settings.yaml").read_text()); s["library"] = "rev"
+    (study / "settings.yaml").write_text(yaml.safe_dump(s))
+    assert run(study, "--dry-run") == 2
+    assert "library" in capsys.readouterr().err
+
+
+def test_refuses_finished_outdir(study, capsys):
+    (study / "out").mkdir(); (study / "out" / "counts.tsv").write_text("x")
+    assert run(study, "--dry-run") == 3
+    assert run(study, "--dry-run", "--resume") == 3
+    (study / "out" / "counts.tsv").unlink(); (study / "out" / "run").mkdir()
+    assert run(study, "--dry-run") == 3
+    assert run(study, "--dry-run", "--resume") == 0
+
+
+def test_dry_run_command(study, capsys):
+    assert run(study, "--dry-run") == 0
+    out = capsys.readouterr().out
+    argv = json.loads(out.strip().splitlines()[-1])
+    assert argv[1] == "run" and argv[2].endswith("workflow/main.nf")
+    assert "-params-file" in argv and "-c" in argv
+    assert argv[argv.index("-profile") + 1] == "udocker"
+    assert argv[argv.index("-w") + 1] == str(study / "out" / "work")
+    assert "-resume" not in argv
+    assert not (study / "out").exists()
+
+
+def test_umi_disagreement_warned(study, capsys):
+    fastq(study / "fq" / "a.fastq.gz", seq="AAAAAACCCCGGGGCCCC")
+    fastq(study / "fq" / "b.fastq.gz", seq="AAAAAACCCCGGGGCCCC")
+    assert run(study, "--dry-run") == 0
+    assert "UMI spacer" in capsys.readouterr().err
+
+
+def test_run_writes_run_files(study, monkeypatch):
+    calls = []
+    monkeypatch.setattr(cli.launch, "start", lambda argv, env, run_dir: calls.append((argv, run_dir)) or 4242)
+    assert run(study) == 0
+    rd = study / "out" / "run"
+    written = yaml.safe_load((rd / "settings.yaml").read_text())
+    assert written["library"] == "fwd_umi" and written["samples"] == str(rd / "samples.csv")
+    assert (rd / "samples.csv").read_text() == (study / "samples.csv").read_text()
+    assert (rd / "changes.tsv").read_text() == "setting\tstandard\tthis_run\nengine\tapptainer\tudocker\n"
+    assert calls and calls[0][1] == rd
+
+
+def test_setup_writes_same_files_as_form(tmp_path, monkeypatch):
+    fq = tmp_path / "fq"; fq.mkdir(); fastq(fq / "L1_S1.fastq.gz"); fastq(fq / "L2_S2.fastq.gz")
+    answers = json.loads((FIX / "form_answers.json").read_text())
+    answers["fastq_dir"] = str(fq)
+    script = iter([answers["run_name"], answers["fastq_dir"], "", answers["library"], answers["reference"],
+                   answers["reference_dir"], answers["outdir"], answers["engine"], answers["executor"],
+                   str(answers["max_cpus"]), answers["max_memory"], "n"])
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["setup"], ask=lambda prompt: next(script)) == 0
+    expected = (FIX / "form_settings.yaml").read_text().replace("@FASTQ_DIR@", str(fq)).replace(
+        "@SAMPLES@", str(tmp_path / "samples.csv"))
+    assert (tmp_path / "settings.yaml").read_text() == expected
+    assert (tmp_path / "samples.csv").read_text() == "sample,fastq,group\nL1_S1,L1_S1.fastq.gz,\nL2_S2,L2_S2.fastq.gz,\n"
+
+
+def test_setup_reasks_invalid_answer(tmp_path, monkeypatch, capsys):
+    fq = tmp_path / "fq"; fq.mkdir(); fastq(fq / "a.fastq.gz")
+    script = iter(["bad name", "ok1", str(tmp_path / "nowhere"), str(fq), "", "", "", str(tmp_path / "ref"),
+                   str(tmp_path / "out"), "", "", "", "", "n"])
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["setup"], ask=lambda prompt: next(script)) == 0
+    err = capsys.readouterr().err
+    assert "run_name" in err and "nowhere" in err
+    s = st.load_settings(tmp_path / "settings.yaml")
+    assert s["run_name"] == "ok1" and s["library"] == "fwd_umi" and s["engine"] == "apptainer"

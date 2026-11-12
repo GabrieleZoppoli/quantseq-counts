@@ -74,3 +74,27 @@ def changes_from_default(s: dict) -> list[tuple]:
 def warnings_for(s: dict) -> list[str]:
     full = with_defaults(s)
     return [e["warning"] for k, e in SCHEMA.items() if "warn_if" in e and full[k] in e["warn_if"]]
+
+
+def _yaml_scalar(v) -> str:
+    if v is None:
+        return "null"
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, int):
+        return str(v)
+    return "'" + str(v).replace("'", "''") + "'"
+
+
+def dump_settings(s: dict) -> str:
+    """settings.yaml in a fixed form: every setting in schema order, each under its help line.
+    The form page writes the same text for the same answers."""
+    full = with_defaults(s)
+    lines = ["# quantseq-counts settings. Edit a value, keep the key. Every setting is explained above it.", ""]
+    group = None
+    for k, e in SCHEMA.items():
+        if e["group"] != group:
+            group = e["group"]
+            lines += [f"# ---- {'basic settings' if group == 'basic' else 'advanced settings'} ----", ""]
+        lines += [f"# {e['help']}", f"{k}: {_yaml_scalar(full[k])}", ""]
+    return "\n".join(lines)

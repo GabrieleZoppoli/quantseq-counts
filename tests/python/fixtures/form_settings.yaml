@@ -1,0 +1,101 @@
+# quantseq-counts settings. Edit a value, keep the key. Every setting is explained above it.
+
+# ---- basic settings ----
+
+# Version of quantseq-counts that wrote these settings; a run refuses another version unless told to accept it.
+package_version: '0.1.0'
+
+# Short name of this run, used in the report (letters, digits, - and _).
+run_name: 'pilot_2026'
+
+# Folder on the server holding the FASTQ files.
+fastq_dir: '@FASTQ_DIR@'
+
+# The sample list (samples.csv: sample, fastq, optional group).
+samples: 'samples.csv'
+
+# Folder where the results of this run are written; it must not hold a finished run.
+outdir: '/srv/quantseq/pilot_2026'
+
+# Library type: QuantSeq FWD with UMI (fwd_umi) or without UMI (fwd_no_umi).
+library: 'fwd_umi'
+
+# Human reference: Ensembl 115 downloaded by the package (ensembl_115) or your own files (custom).
+reference: 'ensembl_115'
+
+# Genome FASTA of a custom human reference.
+fasta: null
+
+# Gene annotation (GTF) of a custom human reference.
+gtf: null
+
+# Folder where the reference and its STAR index are kept and reused between runs.
+reference_dir: '/srv/quantseq/reference'
+
+# Container engine: apptainer (usual on servers without root), udocker, or docker.
+engine: 'apptainer'
+
+# Where the jobs run: on this server (local) or through a SLURM queue (slurm).
+executor: 'local'
+
+# Most cores the run may use at once on this server.
+max_cpus: 12
+
+# Most memory the run may use at once on this server (for example 64 GB).
+max_memory: '96 GB'
+
+# SLURM partition (queue) to submit to.
+slurm_queue: null
+
+# SLURM account to charge, if your cluster asks for one.
+slurm_account: null
+
+# ---- advanced settings ----
+
+# Folder where udocker keeps its images (empty: inside the installation).
+udocker_dir: null
+
+# UMI-tools regular expression: 6 UMI bases, then 4 spacer bases discarded.
+umi_pattern: '^(?P<umi_1>.{6})(?P<discard_1>.{4}).*'
+
+# UMICollapse grouping algorithm (dir = directional, as UMI-tools).
+dedup_algo: 'dir'
+
+# Adapter sequence removed by Trim Galore.
+trim_adapter: 'AGATCGGAAGAGC'
+
+# Extra STAR arguments: mismatch limit and poly(A) clipping, as Lexogen recommends.
+star_extra_args: '--outFilterMismatchNoverLmax 0.1 --clip3pAdapterSeq AAAAAAAA'
+
+# Threads for STAR (empty: the cores given to the alignment task).
+star_threads: null
+
+# Strand of the reads relative to the gene; QuantSeq FWD reads are forward.
+strand: 'forward'
+
+# Count reads that align to several places (featureCounts -M).
+count_multimappers: false
+
+# No-UMI libraries only: remove duplicates by position alone.
+dedup_without_umi: false
+
+# Sort alignments by read name, then by position, before deduplication, so reruns give identical counts.
+deterministic_sort: true
+
+# Keep the alignment files (BAM) in the output folder.
+keep_bams: false
+
+# Keep the trimmed reads in the output folder (used by the release check).
+keep_trimmed_fastq: false
+
+# Libraries with fewer reads after trimming are not aligned and are reported as excluded.
+min_trimmed_reads: 10000
+
+# Skip Qualimap (alignment quality report).
+skip_qualimap: false
+
+# Skip RSeQC (read distribution and other checks).
+skip_rseqc: false
+
+# Skip dupRadar (duplication against expression).
+skip_dupradar: false

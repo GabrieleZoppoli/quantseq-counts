@@ -1,0 +1,209 @@
+"""The quantseq-counts command: setup, run and the others."""
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+from . import __version__, launch
+from . import samples as sm
+from . import settings as st
+
+OK, CHECK_FAILED, REFUSED = 0, 2, 3
+
+
+def _err(msg: str) -> None:
+    print(msg, file=sys.stderr)
+
+
+def default_install() -> Path:
+    return Path(os.environ.get("QUANTSEQ_COUNTS_HOME", Path(__file__).resolve().parents[2]))
+
+
+# ---------------------------------------------------------------- setup
+
+def _question(ask, key, check=None, default=None, label=None):
+    e = st.SCHEMA[key]
+    d = e["default"] if default is None else default
+    shown = "" if d is None else f" [{d}]"
+    while True:
+        raw = ask(f"{label or e['help']}{shown}\n{key}: ").strip()
+        v = d if raw == "" else raw
+        if e["type"] in ("integer", "integer_or_null") and isinstance(v, str):
+            try:
+                v = int(v)
+            except ValueError:
+                pass
+        if e["type"] == "boolean" and isinstance(v, str):
+            v = {"true": True, "yes": True, "y": True, "false": False, "no": False, "n": False}.get(v.lower(), v)
+        probe = {"package_version": __version__, key: v}
+        errs = [x for x in st.validate(probe) if x.startswith(key + ":")]
+        if check and not errs:
+            errs = check(v)
+        if not errs:
+            return v
+        for x in errs:
+            _err(x)
+
+
+def _exists_dir(v):
+    return [] if Path(v).is_dir() else [f"fastq_dir: {v} is not a folder on this server"]
+
+
+def _samples_from_names(fastq_dir: Path) -> str:
+    rows = ["sample,fastq,group"]
+    for p in sorted(fastq_dir.iterdir()):
+        for suf in sm.FASTQ_SUFFIXES:
+            if p.name.endswith(suf):
+                rows.append(f"{p.name[: -len(suf)]},{p.name},")
+                break
+    return "\n".join(rows) + "\n"
+
+
+def cmd_setup(args, ask) -> int:
+    s = {"package_version": __version__}
+    s["run_name"] = _question(ask, "run_name")
+    s["fastq_dir"] = _question(ask, "fastq_dir", check=_exists_dir)
+    fq = Path(s["fastq_dir"])
+    while True:
+        raw = ask("Sample list (samples.csv) to use, or press Enter to build it from the FASTQ file names\nsamples: ").strip()
+        try:
+            if raw == "":
+                Path("samples.csv").write_text(_samples_from_names(fq))
+            else:
+                Path("samples.csv").write_bytes(Path(raw).read_bytes())
+            rows = sm.read_samples(Path("samples.csv"))
+            errors, warnings = sm.check_folder(rows, fq)
+        except (OSError, ValueError) as e:
+            _err(str(e)); continue
+        for w in warnings:
+            _err("warning: " + w)
+        if errors:
+            for x in errors:
+                _err(x)
+            continue
+        break
+    s["samples"] = "samples.csv"
+    s["library"] = _question(ask, "library")
+    share = sm.probe_umi(fq / rows[0].fastq)
+    msg = sm.umi_disagreement(s["library"], share)
+    if msg:
+        _err("warning: " + msg)
+    s["reference"] = _question(ask, "reference")
+    if s["reference"] == "custom":
+        s["fasta"] = _question(ask, "fasta")
+        s["gtf"] = _question(ask, "gtf")
+    s["reference_dir"] = _question(ask, "reference_dir")
+    s["outdir"] = _question(ask, "outdir")
+    s["engine"] = _question(ask, "engine")
+    s["executor"] = _question(ask, "executor")
+    if s["executor"] == "local":
+        s["max_cpus"] = _question(ask, "max_cpus")
+        s["max_memory"] = _question(ask, "max_memory")
+    else:
+        s["slurm_queue"] = _question(ask, "slurm_queue")
+        s["slurm_account"] = _question(ask, "slurm_account", default="")  or None
+    if ask("Change advanced settings? [n]\n").strip().lower() in ("y", "yes"):
+        for k, e in st.SCHEMA.items():
+            if e["group"] == "advanced":
+                s[k] = _question(ask, k)
+    for w in st.warnings_for(s):
+        _err("warning: " + w)
+    errs = st.validate(s)
+    if errs:
+        for x in errs:
+            _err(x)
+        return CHECK_FAILED
+    Path("settings.yaml").write_text(st.dump_settings(s))
+    print("Wrote settings.yaml and samples.csv. Start the run with:\n"
+          "  quantseq-counts run --settings settings.yaml --samples samples.csv")
+    return OK
+
+
+# ---------------------------------------------------------------- run
+
+def cmd_run(args, ask) -> int:
+    sfile = Path(args.settings)
+    try:
+        s = st.load_settings(sfile)
+    except (OSError, ValueError) as e:
+        _err(str(e)); return CHECK_FAILED
+    errs = st.validate(s, accept_version_change=args.accept_version_change)
+    if errs:
+        for x in errs:
+            _err(x)
+        return CHECK_FAILED
+    s = st.with_defaults(s)
+    samples_file = Path(args.samples) if args.samples else (sfile.parent / s["samples"])
+    try:
+        rows = sm.read_samples(samples_file)
+    except (OSError, ValueError) as e:
+        _err(str(e)); return CHECK_FAILED
+    fq = Path(s["fastq_dir"])
+    errors, warnings = sm.check_folder(rows, fq)
+    if errors:
+        for x in errors:
+            _err(x)
+        return CHECK_FAILED
+    for r in rows:
+        msg = sm.umi_disagreement(s["library"], sm.probe_umi(fq / r.fastq))
+        if msg:
+            warnings.append(f"{r.name}: {msg}")
+    warnings += st.warnings_for(s)
+    out = Path(s["outdir"]).absolute()
+    if (out / "counts.tsv").exists():
+        _err(f"{out} holds a finished run (counts.tsv): choose another outdir"); return REFUSED
+    if (out / "run").exists() and not args.resume:
+        _err(f"{out} holds an unfinished run: add --resume to continue it, or choose another outdir"); return REFUSED
+    for w in warnings:
+        _err("warning: " + w)
+    if warnings and not args.yes and not args.dry_run:
+        if ask("Start anyway? [y/N] ").strip().lower() not in ("y", "yes"):
+            return CHECK_FAILED
+    s["outdir"] = str(out)
+    s["fastq_dir"] = str(fq.absolute())
+    install = Path(args.install) if args.install else default_install()
+    run_dir = out / "run"
+    paths = [fq] + [fq / r.fastq for r in rows] + [Path(s["reference_dir"]), out.parent]
+    if s["reference"] == "custom":
+        paths += [Path(s["fasta"]), Path(s["gtf"])]
+    mounts = launch.container_mounts(paths)
+    argv = launch.nextflow_command(s, run_dir, install, resume=args.resume)
+    if args.dry_run:
+        print(json.dumps(argv))
+        return OK
+    launch.write_run_files(s, samples_file, run_dir, mounts)
+    env = launch.engine_env(s, run_dir, install)
+    pid = launch.start(argv, env, run_dir)
+    print(f"Started (process {pid}). Follow it with:\n  tail -f {run_dir / 'nextflow.log'}")
+    return OK
+
+
+def main(argv=None, ask=input) -> int:
+    p = argparse.ArgumentParser(prog="quantseq-counts")
+    p.add_argument("--version", action="store_true")
+    sub = p.add_subparsers(dest="cmd")
+    sub.add_parser("setup", help="answer questions; writes settings.yaml and samples.csv")
+    r = sub.add_parser("run", help="check the settings and samples, then start the run")
+    r.add_argument("--settings", required=True)
+    r.add_argument("--samples")
+    r.add_argument("--resume", action="store_true")
+    r.add_argument("--accept-version-change", action="store_true")
+    r.add_argument("--dry-run", action="store_true")
+    r.add_argument("--yes", action="store_true", help="do not ask before starting when there are warnings")
+    r.add_argument("--install", help=argparse.SUPPRESS)
+    a = p.parse_args(argv)
+    if a.version:
+        print(f"quantseq-counts {__version__}")
+        return OK
+    if a.cmd == "setup":
+        return cmd_setup(a, ask)
+    if a.cmd == "run":
+        return cmd_run(a, ask)
+    p.print_help()
+    return CHECK_FAILED
+
+
+if __name__ == "__main__":
+    sys.exit(main())
