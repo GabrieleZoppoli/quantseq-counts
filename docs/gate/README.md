@@ -15,4 +15,4 @@ see a change in the reads kept.
   with STAR at 8 and 5 threads, the sorts at 6 and 3 and featureCounts at 6 and 3. The control differed in 9 of 12
   objects: with the name-then-position sort off, the alignments' order and the reads kept followed the thread count,
   and the counts table differed in 2 genes by 1 count each. STAR's records were the same at both thread counts, so
-  STAR's thread count is not fixed. Run B (another day) is to come.
+  the package leaves STAR's thread count free (`star_threads` empty by default). Run B (another day) is to come.
