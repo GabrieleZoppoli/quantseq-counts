@@ -5,8 +5,15 @@ spacer (UMI-tools, `^(?P<umi_1>.{6})(?P<discard_1>.{4}).*`).
 
 | Step | What it removes | How |
 |---|---|---|
-| Trim Galore | Illumina adapter `AGATCGGAAGAGC`, low-quality 3' bases (Phred 20), reads shorter than 20 nt | `--adapter AGATCGGAAGAGC` (other values Trim Galore's defaults) |
+| Trim Galore | Illumina adapter `AGATCGGAAGAGC`, low-quality 3' bases (Phred 20), poly-G tails, reads shorter than 20 nt | `--adapter AGATCGGAAGAGC` (other values Trim Galore's defaults) |
 | STAR | poly(A) at the 3' end; mismatches at the read start | `--clip3pAdapterSeq AAAAAAAA`, `--outFilterMismatchNoverLmax 0.1`, local alignment (soft-clipping) |
+
+Poly-G tails: on two-colour instruments (NextSeq, NovaSeq) a base with no signal is read as a high-quality G, so
+reads that run past the end of the insert end in a run of G. Trim Galore 2.1.0 looks for such tails in each library
+and, when it finds them, removes them by default (its `--no_poly_g` turns this off, `--poly_g` forces it on). Each
+library's trimming report (`qc/trimgalore/`) says whether poly-G trimming was on and how many reads it trimmed. On the
+public test data it was on in every library: 6-8% of reads in the UMI test libraries (NextSeq 500) and 3-16% in
+the no-UMI test libraries (PRJNA1262383, whose read names point to a NextSeq 1000/2000).
 
 Why no fixed cut of the first 12 bases in the mode without UMI: Lexogen's user guide for QuantSeq 3' mRNA-Seq V2
 FWD (191UG444V0112, 14 January 2026, Appendix G, Data Analysis, Trimming; the same text is in the V1 guide
