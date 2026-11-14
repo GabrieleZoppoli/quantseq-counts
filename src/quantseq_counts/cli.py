@@ -40,7 +40,7 @@ def _question(ask, key, check=None, default=None, label=None):
                 v = int(v)
             except ValueError:
                 pass
-        if e["type"] == "boolean" and isinstance(v, str):
+        if e["type"] in ("boolean", "auto_or_boolean") and isinstance(v, str):
             v = {"true": True, "yes": True, "y": True, "false": False, "no": False, "n": False}.get(v.lower(), v)
         probe = {"package_version": __version__, key: v}
         errs = [x for x in st.validate(probe) if x.startswith(key + ":")]

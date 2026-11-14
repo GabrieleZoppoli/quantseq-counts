@@ -35,3 +35,8 @@ QUALIMAP_RNASEQ	contains	-p strand-specific-forward	executed in the reference ru
 FEATURECOUNTS_MAIN	contains	featureCounts -s 1 -t exon -g gene_id	executed in the reference run (main counts)
 FEATURECOUNTS_MAIN	absent	 -M 	unique alignments only
 FEATURECOUNTS_MAIN	absent	 -O 	a read overlapping two genes not counted
+RRNA_CHECK	contains	--alignIntronMax 1	no splicing against the 45S region (prototype 14 Nov 2026)
+RRNA_CHECK	contains	--clip3pAdapterSeq AAAAAAAA	the main alignment's poly(A) clipping
+RRNA_CHECK	contains	--outFilterMismatchNoverLmax 0.1	the main alignment's mismatch limit
+RRNA_CHECK	contains	samtools view -F 0x904	primary records only
+RRNA_INDEX	contains	--genomeSAindexNbases 5	index of a 13 kb sequence

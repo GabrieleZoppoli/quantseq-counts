@@ -21,7 +21,7 @@ for group, title in (("basic", "Basic settings"), ("advanced", "Advanced setting
             continue
         what = e["help"]
         if "enum" in e:
-            what += " Values: " + ", ".join(f"`{x}`" for x in e["enum"]) + "."
+            what += " Values: " + ", ".join(show(x) for x in e["enum"]) + "."
         if "warning" in e:
             what += f" **Warning shown when changed:** {e['warning']}"
         lines.append(f"| `{k}` | {show(e['default'])} | {what} |")

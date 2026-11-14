@@ -41,6 +41,8 @@ include { RSEQC_JUNCTIONSATURATION    } from './modules/nf-core/rseqc/junctionsa
 include { RSEQC_READDISTRIBUTION      } from './modules/nf-core/rseqc/readdistribution/main'
 include { RSEQC_READDUPLICATION       } from './modules/nf-core/rseqc/readduplication/main'
 include { DUPRADAR                    } from './modules/nf-core/dupradar/main'
+include { RRNA_INDEX                  } from './modules/local/rrna_index'
+include { RRNA_CHECK                  } from './modules/local/rrna_check'
 
 // Where the reference and its STAR index are stored, so that runs on the same reference reuse them.
 def referenceId() {
@@ -60,6 +62,12 @@ def versionRows(v) {
         else if (q && proc) rows << "${proc}\t${q[0][1].trim()}\t${q[0][2].trim().replaceAll(/^['"]|['"]$/, '')}"
     }
     return rows
+}
+
+// The 45S rRNA check (setting rrna_check): auto runs it with ensembl_115 (human) and not with a custom reference.
+def rrnaCheck() {
+    def v = params.rrna_check == null ? 'auto' : params.rrna_check
+    return v == 'auto' ? params.reference == 'ensembl_115' : v == true
 }
 
 def trimmedReads(log_file) {  // as nf-core/rnaseq 3.26.0 (fastq_fastqc_umitools_trimgalore)
@@ -190,6 +198,12 @@ workflow {
     if (!params.skip_dupradar) {
         DUPRADAR(ch_count.map { m, b, _i -> [m, b] }, ch_gtf)
     }
+    def ch_rrna = channel.empty()
+    if (rrnaCheck()) {
+        RRNA_INDEX(file("${projectDir}/assets/rdna_45s.fa"), gtf_file)
+        RRNA_CHECK(ch_kept.join(STAR_ALIGN.out.bam), RRNA_INDEX.out.index, RRNA_INDEX.out.mt_bed)
+        ch_rrna = RRNA_CHECK.out.tsv
+    }
 
     // ---- the per-library QC table, its first page, and MultiQC over everything
     def ch_screen = QUANTSEQ_SCREEN.out.tsv.collectFile(name: 'screen.tsv', sort: true,
@@ -197,11 +211,12 @@ workflow {
     def ch_logs = STAR_ALIGN.out.log_final.map { _m, f -> f }
         .mix(TRIMGALORE.out.log.map { _m, f -> f })
     if (umi) ch_logs = ch_logs.mix(SAMTOOLS_FLAGSTAT_DEDUP.out.flagstat.map { _m, f -> f })
+    ch_logs = ch_logs.mix(ch_rrna)
     def changes = file("${params.outdir}/run/changes.tsv").exists() ? file("${params.outdir}/run/changes.tsv") : file("${projectDir}/assets/no_changes.tsv")
     QC_TABLE(ch_logs.collect(), ch_screen, FEATURECOUNTS_MAIN.out.summary, file("${projectDir}/../schema/qc_thresholds.json"),
              changes, BUILD_OUTPUTS.out.excluded)
     def ch_mqc = channel.empty()
-        .mix(QC_TABLE.out.page, FASTQC.out.zip.map { _m, f -> f }, TRIMGALORE.out.log.map { _m, f -> f },
+        .mix(QC_TABLE.out.page, QC_TABLE.out.classes, FASTQC.out.zip.map { _m, f -> f }, TRIMGALORE.out.log.map { _m, f -> f },
              STAR_ALIGN.out.log_final.map { _m, f -> f }, SAMTOOLS_STATS.out.stats.map { _m, f -> f },
              SAMTOOLS_FLAGSTAT.out.flagstat.map { _m, f -> f }, SAMTOOLS_IDXSTATS.out.idxstats.map { _m, f -> f },
              FEATURECOUNTS_MAIN.out.summary, CUSTOM_MULTIQCCUSTOMBIOTYPE.out.tsv.map { _m, f -> f })

@@ -6,7 +6,7 @@ TABLE_KEYS = [
     "reference_dir", "engine", "udocker_dir", "executor", "max_cpus", "max_memory", "slurm_queue", "slurm_account",
     "umi_pattern", "dedup_algo", "trim_adapter", "star_extra_args", "star_threads", "strand", "count_multimappers",
     "dedup_without_umi", "deterministic_sort", "keep_bams", "keep_trimmed_fastq", "min_trimmed_reads",
-    "skip_qualimap", "skip_rseqc", "skip_dupradar",
+    "skip_qualimap", "skip_rseqc", "skip_dupradar", "rrna_check",
 ]
 
 
@@ -104,3 +104,19 @@ def test_load_settings(tmp_path):
 def test_change_from_empty_default_listed():
     s = minimal(); s["star_threads"] = 8
     assert st.changes_from_default(s) == [("star_threads", None, 8)]
+
+
+def test_rrna_check_auto_or_boolean():
+    assert st.with_defaults(minimal())["rrna_check"] == "auto"
+    for v in ("auto", True, False):
+        s = minimal(); s["rrna_check"] = v
+        assert st.validate(s) == [], v
+    for v in ("yes", "true", 1):
+        s = minimal(); s["rrna_check"] = v
+        assert any("rrna_check" in e for e in st.validate(s)), v
+
+
+def test_rrna_check_written_as_yaml():
+    s = minimal(); s["rrna_check"] = True
+    assert "\nrrna_check: true\n" in st.dump_settings(s)
+    assert "\nrrna_check: 'auto'\n" in st.dump_settings(minimal())

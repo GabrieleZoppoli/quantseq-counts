@@ -93,6 +93,7 @@ function readValue(e, input) {
   const v = input.value.trim();
   if (v === '') return null;
   if (e.type.startsWith('integer')) return Number.parseInt(v, 10);
+  if (e.type === 'auto_or_boolean' && v !== 'auto') return v === 'true';
   return v;
 }
 

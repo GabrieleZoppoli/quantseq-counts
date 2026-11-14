@@ -5,12 +5,31 @@ the settings that differ from the standard. Python standard library only.
 Usage: qc_table.py --dir FOLDER --library fwd_umi|fwd_no_umi --thresholds thresholds.json --changes changes.tsv
                    --excluded excluded.tsv --out OUTDIR
 FOLDER holds <lib>.Log.final.out, <lib>_trimmed.fastq.gz_trimming_report.txt, <lib>.umi_dedup.sorted.bam.flagstat (UMI mode),
-screen.tsv and featurecounts.txt.summary."""
+screen.tsv and featurecounts.txt.summary, and <lib>.rrna.tsv when the rRNA check ran (rrna_check): trimmed reads
+(STAR input), reads aligned to the 45S pre-rRNA region of GenBank U13369.1, the other reads aligned once or to several
+places in the genome, and reads on the mitochondrial rRNA genes. Without it the two rRNA columns read NA."""
 import argparse
 import html
 import json
 import re
+import sys
 from pathlib import Path
+
+CLASSES = ["45S rRNA", "Aligned once, not rRNA", "Aligned to several places, not rRNA", "Not aligned"]
+CHART = """# id: 'quantseq_read_classes'
+# section_name: 'Reads by class'
+# description: "each library's trimmed reads in four classes that do not overlap: reads that align to the 45S
+#     pre-rRNA (18S, 5.8S, 28S and their spacers; GenBank U13369.1, bases 1-13,314), whether or not they also align
+#     in the genome; the other reads aligned to one place in the genome; to several places; and not aligned.
+#     QuantSeq primes on poly(A), so 45S rRNA reads come from priming inside the rRNA. Ensembl annotates no 18S or
+#     28S gene, so the Biotype Counts section below does not show these reads."
+# plot_type: 'bargraph'
+# pconfig:
+#     id: 'quantseq_read_classes_plot'
+#     title: 'quantseq-counts: reads by class'
+#     ylab: 'Reads'
+#     cpswitch_c_active: False
+"""
 
 
 def star(path):
@@ -34,6 +53,15 @@ def flagstat_primary(path):
     return int(m.group(1))
 
 
+def rrna(path):
+    h, rows = table(path)
+    v = {k: None if x == "NA" else int(x) for k, x in zip(h[1:], rows[0][1:])}
+    v["not_aligned"] = v["input"] - v["rrna_45s"] - v["unique_other"] - v["multi_other"]
+    if v["not_aligned"] < 0:
+        sys.exit(f"{path.name}: the read classes add up to more than the {v['input']} trimmed reads")
+    return v
+
+
 def table(path):
     rows = [l.split("\t") for l in path.read_text().splitlines() if l.strip()]
     return rows[0], rows[1:]
@@ -55,8 +83,8 @@ def main():
     fc = {lib: {r[0]: int(r[i + 1]) for r in frows} for i, lib in enumerate(libs)}
     cols = ["library", "raw", "trimmed", "aligned_unique", "aligned_multi", "after_dedup", "counted",
             "share_multimapping", "share_ambiguous", "umi_spacer_share", "umi_with_n_share", "polyA8_share",
-            "adapter_share", "flag", "flag_reason"]
-    lines, passed, flagged = ["\t".join(cols)], [], []
+            "adapter_share", "rrna_45s_share", "mt_rrna_share", "flag", "flag_reason"]
+    lines, passed, flagged, chart = ["\t".join(cols)], [], [], []
     for lib in sorted(libs):
         sc = screen[lib]
         raw = int(sc["reads"])
@@ -67,6 +95,11 @@ def main():
         total_fc = sum(f.values()) or 1
         counted = f.get("Assigned", 0)
         sh = lambda k: int(sc[k]) / raw if raw else 0.0
+        rf = d / f"{lib}.rrna.tsv"
+        rr = rrna(rf) if rf.exists() else None
+        rshare = lambda k: "NA" if rr is None or rr[k] is None else f"{rr[k] / rr['input'] if rr['input'] else 0.0:.4f}"
+        if rr is not None:
+            chart.append([lib, rr["rrna_45s"], rr["unique_other"], rr["multi_other"], rr["not_aligned"]])
         reasons = []
         if counted < th.get("min_assigned_reads", 0):
             reasons.append(f"counted {counted} < {th['min_assigned_reads']}")
@@ -79,9 +112,12 @@ def main():
         vals = [lib, raw, trim, uni, multi, "" if dedup is None else dedup, counted,
                 f"{f.get('Unassigned_MultiMapping', 0) / total_fc:.4f}", f"{f.get('Unassigned_Ambiguity', 0) / total_fc:.4f}",
                 f"{sh('tata_exact'):.4f}", f"{sh('umi_with_n'):.4f}", f"{sh('polyA8_any'):.4f}", f"{sh('adapter12_any'):.4f}",
-                flag, "; ".join(reasons)]
+                rshare("rrna_45s"), rshare("mt_rrna"), flag, "; ".join(reasons)]
         lines.append("\t".join(map(str, vals)))
     (out / "samples.tsv").write_text("\n".join(lines) + "\n")
+    if chart:
+        (out / "read_classes_mqc.tsv").write_text(
+            CHART + "\t".join(["Sample"] + CLASSES) + "\n" + "".join("\t".join(map(str, r)) + "\n" for r in chart))
 
     _, changes = table(Path(a.changes))
     eh, erows = table(Path(a.excluded)) if Path(a.excluded).exists() else ([], [])

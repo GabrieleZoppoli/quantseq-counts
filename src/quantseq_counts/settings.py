@@ -34,6 +34,8 @@ def _type_ok(typ: str, v) -> bool:
         return v is None or (isinstance(v, int) and not isinstance(v, bool))
     if typ == "boolean":
         return isinstance(v, bool)
+    if typ == "auto_or_boolean":
+        return v == "auto" or isinstance(v, bool)
     raise ValueError(f"unknown type {typ}")
 
 

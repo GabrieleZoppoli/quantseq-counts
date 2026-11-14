@@ -15,7 +15,7 @@ t, eng, lib, exe = sys.argv[1:5]
 s = {"package_version": __version__, "run_name": "commands", "fastq_dir": f"{t}/data", "samples": "data/samples.csv",
      "outdir": f"{t}/out", "reference": "custom", "fasta": f"{t}/data/genome.fa.gz", "gtf": f"{t}/data/genes.gtf.gz",
      "reference_dir": f"{t}/ref", "engine": eng, "max_cpus": int(os.environ.get("MAX_CPUS", 8)), "max_memory": os.environ.get("MAX_MEMORY", "32 GB"), "min_trimmed_reads": 0,
-     "library": lib, "executor": exe, "slurm_queue": "debug" if exe == "slurm" else None}
+     "library": lib, "executor": exe, "slurm_queue": "debug" if exe == "slurm" else None, "rrna_check": True}
 open(f"{t}/settings.yaml", "w").write(st.dump_settings(s))
 PY
 "$INST/bin/quantseq-counts" run --settings "$T/settings.yaml" --yes --foreground > "$T/run.out" 2>&1; rc=$?
@@ -31,4 +31,10 @@ tail -n +2 "$HERE/tests/workflow/expected_args.tsv" | while IFS=$'\t' read -r pr
   [ $bad -eq 0 ] && echo "ok - $proc $kind: $text" || echo "FAIL - $proc $kind: $text"
 done > "$T/args.txt"
 cat "$T/args.txt"; grep -q '^FAIL' "$T/args.txt" && fail=1
+# the rRNA check (rrna_check true): a number for every library, and its chart in the report
+c=$(head -1 "$T/out/qc/samples.tsv" | tr '\t' '\n' | grep -nx rrna_45s_share | cut -d: -f1)
+[ -n "$c" ] && awk -F'\t' -v c="$c" 'NR > 1 && $c !~ /^[0-9.]+$/ {bad = 1} END {exit bad}' "$T/out/qc/samples.tsv" \
+  && echo "ok - rrna_45s_share for every library" || { echo "FAIL - rrna_45s_share for every library"; fail=1; }
+grep -q quantseq_read_classes "$T/out/qc/multiqc_report.html" && echo "ok - reads-by-class chart in the report" \
+  || { echo "FAIL - reads-by-class chart in the report"; fail=1; }
 [ $fail -eq 0 ] && echo "RESULT: PASS" || { echo "RESULT: FAIL"; exit 1; }

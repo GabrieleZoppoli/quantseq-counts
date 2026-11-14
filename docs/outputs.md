@@ -10,6 +10,31 @@ One folder per run (`outdir`):
   group column (`colData(se)`).
 - `excluded.tsv`: libraries not counted (too few reads after trimming), with the reason.
 - `qc/multiqc_report.html`, `qc/samples.tsv`, and the per-tool folders.
+
+## Ribosomal RNA
+
+QuantSeq primes reverse transcription on poly(A), so ribosomal RNA, which has no poly(A) tail, should give few
+reads. It still gives some, from priming on A-rich stretches inside the 18S and 28S rRNA, and more when the RNA is
+degraded. Ensembl (release 116 and earlier) has no gene for the 18S, 28S or 45S rRNA: only the 5.8S copies are genes
+of biotype `rRNA`. These reads are therefore missing from the counts and from the Biotype Counts section of the report.
+They also align to several places (the rDNA repeats on chromosome 21 and on the unplaced scaffolds GL000220.1 and
+KI270733.1), so they lower the share of reads aligned once.
+
+The rRNA check (setting `rrna_check`) measures them. Each library's trimmed reads are aligned with STAR to the
+transcribed 45S region of the human rDNA repeat (GenBank U13369.1, bases 1-13,314: 5' ETS, 18S, ITS1, 5.8S, ITS2,
+28S, 3' ETS; shipped as `workflow/assets/rdna_45s.fa`), without splicing and with the filters of the main alignment.
+Each read is then put in one of four classes, shown per library in the report's "Reads by class" chart: 45S rRNA
+(any hit on the 45S, whatever its genome alignment); the other reads aligned to one place in the genome; to several
+places; not aligned. `qc/samples.tsv` gives:
+
+- `rrna_45s_share`: 45S rRNA reads as a share of the trimmed reads;
+- `mt_rrna_share`: reads whose genome alignment falls on a mitochondrial rRNA gene (Ensembl biotype `Mt_rRNA`), as a
+  share of the trimmed reads; NA when the GTF has no such gene.
+
+Neither column flags a library. With `rrna_check: auto` (the standard) the check runs with the `ensembl_115`
+reference and not with a custom reference, since the 45S sequence is human; set `rrna_check: true` for a human custom
+reference. On one public library (SRR33542394) the 45S share was 43.1% of the trimmed reads; the reads with any
+genome alignment on the rDNA loci were 41.9%, and 99.8% of those were also found by the check.
 - `run/`: `settings.yaml` (every setting as run), `changes.tsv` (settings changed from the standard), `samples.csv`,
   `versions.tsv`, `containers.tsv` (each process's image and its digest), `trace.txt`, `report.html`, `nextflow.log`,
   and `DONE` once the run has ended without error.

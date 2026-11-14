@@ -64,7 +64,7 @@ readme <- c(
   "counts.tsv          genes in rows (Ensembl id, gene name, biotype), libraries in columns; molecule counts",
   "counts.rds          the same counts as a SummarizedExperiment, with the gene annotation and the sample list",
   "excluded.tsv        libraries not counted, with the reason",
-  "qc/                 quality report (multiqc_report.html) and per-library table (samples.tsv)",
+  "qc/                 quality report (multiqc_report.html) and per-library table (samples.tsv, with the share of rRNA reads)",
   "run/                settings as run, tool versions, containers, the Nextflow trace and logs",
   "",
   "In R:",

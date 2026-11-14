@@ -43,3 +43,4 @@ Every setting can be changed in the form, in `quantseq-counts setup` or in `sett
 | `skip_qualimap` | `false` | Skip Qualimap (alignment quality report). |
 | `skip_rseqc` | `false` | Skip RSeQC (read distribution and other checks). |
 | `skip_dupradar` | `false` | Skip dupRadar (duplication against expression). |
+| `rrna_check` | `auto` | Measure the share of reads from 45S ribosomal RNA, against the human 45S sequence (GenBank U13369.1): auto measures it with the ensembl_115 reference and not with a custom one (the columns read NA); true or false turn it on or off. Values: `auto`, `true`, `false`. |

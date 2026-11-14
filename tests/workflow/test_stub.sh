@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Stub run of the whole workflow on the synthetic data: every process is wired and runs its stub; checks the
 # processes that must and must not be in the run. Needs a Nextflow 25.04.8 (NXF=path, default: install's bin/nextflow).
-# Usage: bash tests/workflow/test_stub.sh [library]   (library: fwd_umi, default, or fwd_no_umi)
+# Usage: bash tests/workflow/test_stub.sh [library]   (library: fwd_umi, default, fwd_no_umi, fwd_no_umi_dedup, or
+#   fwd_umi_rrna: the UMI mode with rrna_check true on the custom reference)
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"; LIB="${1:-fwd_umi}"
 NXF="${NXF:-$HERE/bin/nextflow}"; T="${KEEP:-$(mktemp -d)}"; [ -n "${KEEP:-}" ] || trap 'rm -rf "$T"' EXIT; mkdir -p "$T"
@@ -10,8 +11,8 @@ PYTHONPATH="$HERE/src" python3 - "$T" "$LIB" <<'PY'
 import sys
 from quantseq_counts import settings as st, __version__
 t, lib = sys.argv[1], sys.argv[2]
-extra = {"dedup_without_umi": True} if lib == "fwd_no_umi_dedup" else {}
-lib = "fwd_no_umi" if lib == "fwd_no_umi_dedup" else lib
+extra = {"dedup_without_umi": True} if lib == "fwd_no_umi_dedup" else {"rrna_check": True} if lib == "fwd_umi_rrna" else {}
+lib = {"fwd_no_umi_dedup": "fwd_no_umi", "fwd_umi_rrna": "fwd_umi"}.get(lib, lib)
 s = {"package_version": __version__, "run_name": "stub", "fastq_dir": f"{t}/data", "samples": f"{t}/data/samples.csv",
      "outdir": f"{t}/out", "reference": "custom", "fasta": f"{t}/data/genome.fa.gz", "gtf": f"{t}/data/genes.gtf.gz",
      "reference_dir": f"{t}/ref", "library": lib, "min_trimmed_reads": 0, **extra}
@@ -28,12 +29,15 @@ rc=$?; fail=0; ok() { echo "ok - $1"; }; ko() { echo "FAIL - $1"; fail=1; }
 [ $rc -eq 0 ] && ok "stub run exits 0" || { ko "stub run exits 0"; tail -30 "$T/run.log"; }
 procs="$(awk -F'\t' 'NR > 1 {sub(/ \(.*/, "", $3); n = split($3, a, ":"); print a[n]}' "$T/out/run/trace.txt" | sort -u)"
 need="QUANTSEQ_SCREEN QC_TABLE MULTIQC FEATURECOUNTS_MAIN BUILD_OUTPUTS STAR_GENOMEGENERATE STAR_ALIGN SORT_NAME_THEN_POSITION TRIMGALORE FASTQC FQ_LINT SUBREAD_FEATURECOUNTS QUALIMAP_RNASEQ DUPRADAR RSEQC_READDISTRIBUTION"
-[ "$LIB" = fwd_umi ] && need="$need UMITOOLS_EXTRACT UMICOLLAPSE"
+case "$LIB" in fwd_umi|fwd_umi_rrna) need="$need UMITOOLS_EXTRACT UMICOLLAPSE";; esac
+# the rRNA check: off with a custom reference (rrna_check auto), on when forced
+if [ "$LIB" = fwd_umi_rrna ]; then need="$need RRNA_INDEX RRNA_CHECK"
+else for p in RRNA_INDEX RRNA_CHECK; do printf '%s\n' "$procs" | grep -qx "$p" && ko "no $p (custom reference, rrna_check auto)" || ok "no $p (custom reference, rrna_check auto)"; done; fi
 for p in $need; do printf '%s\n' "$procs" | grep -qx "$p" && ok "ran $p" || ko "ran $p"; done
 for p in SALMON_QUANT TXIMETA_TXIMPORT STRINGTIE_STRINGTIE SAMTOOLS_SORT; do printf '%s\n' "$procs" | grep -qx "$p" && ko "no $p" || ok "no $p"; done
 [ "$LIB" = fwd_no_umi_dedup ] && { printf '%s\n' "$procs" | grep -qx DEDUP_POSITION && ok "ran DEDUP_POSITION" || ko "ran DEDUP_POSITION"; }
 [ "$LIB" = fwd_no_umi ] && { printf '%s\n' "$procs" | grep -qx DEDUP_POSITION && ko "no DEDUP_POSITION" || ok "no DEDUP_POSITION"; }
-if [ "$LIB" != fwd_umi ]; then for p in UMITOOLS_EXTRACT UMICOLLAPSE; do printf '%s\n' "$procs" | grep -qx "$p" && ko "no $p (no-UMI mode)" || ok "no $p (no-UMI mode)"; done; fi
+if [ "$LIB" = fwd_no_umi ] || [ "$LIB" = fwd_no_umi_dedup ]; then for p in UMITOOLS_EXTRACT UMICOLLAPSE; do printf '%s\n' "$procs" | grep -qx "$p" && ko "no $p (no-UMI mode)" || ok "no $p (no-UMI mode)"; done; fi
 n=$(awk -F'\t' 'NR > 1 && $3 ~ /STAR_ALIGN/' "$T/out/run/trace.txt" | wc -l | tr -d ' '); [ "$n" = 3 ] && ok "three libraries aligned" || ko "three libraries aligned ($n)"
 for f in run/DONE qc/samples.tsv counts.tsv counts.rds README.txt excluded.tsv run/trace.txt run/report.html run/versions.tsv; do [ -s "$T/out/$f" ] || [ -e "$T/out/$f" ] && ok "wrote $f" || ko "wrote $f"; done
 for p in STAR_ALIGN DUPRADAR CUSTOM_GTFFILTER; do grep -q "^$p"$'\t' "$T/out/run/versions.tsv" && ok "versions.tsv lists $p" || ko "versions.tsv lists $p"; done

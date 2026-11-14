@@ -10,7 +10,7 @@ t, h = sys.argv[1:3]
 for lib in ("fwd_umi", "fwd_no_umi"):
     open(f"{t}/{lib}.yaml", "w").write(st.dump_settings({"package_version": __version__, "run_name": "p", "fastq_dir": f"{h}/tests/data/synthetic",
         "samples": f"{h}/tests/data/synthetic/samples.csv", "outdir": f"{t}/out", "reference": "custom", "fasta": f"{h}/tests/data/synthetic/genome.fa.gz",
-        "gtf": f"{h}/tests/data/synthetic/genes.gtf.gz", "reference_dir": f"{t}/ref", "library": lib, "dedup_without_umi": lib == "fwd_no_umi"}))
+        "gtf": f"{h}/tests/data/synthetic/genes.gtf.gz", "reference_dir": f"{t}/ref", "library": lib, "dedup_without_umi": lib == "fwd_no_umi", "rrna_check": True}))
 PY
 unpinned() {  # images (stdin) not pinned to a digest of the table
   local i d

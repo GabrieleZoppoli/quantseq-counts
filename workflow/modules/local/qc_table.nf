@@ -1,4 +1,5 @@
-// qc/samples.tsv and the report's first page (workflow/bin/qc_table.py), from the per-library logs.
+// qc/samples.tsv, the report's first page and, with the rRNA check, its reads-by-class chart (workflow/bin/qc_table.py),
+// from the per-library logs.
 process QC_TABLE {
     label 'process_single'
     container 'biocontainers/python:3.12.12'
@@ -15,6 +16,7 @@ process QC_TABLE {
     output:
     path 'samples.tsv',      emit: tsv
     path 'summary_mqc.html', emit: page
+    path 'read_classes_mqc.tsv', emit: classes, optional: true
 
     script:
     """

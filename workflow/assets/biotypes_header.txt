@@ -1,7 +1,9 @@
 # id: 'biotype_counts'
 # section_name: 'Biotype Counts'
 # description: "shows reads overlapping genomic features of different biotypes,
-#     counted by <a href='http://bioinf.wehi.edu.au/featureCounts'>featureCounts</a>."
+#     counted by <a href='http://bioinf.wehi.edu.au/featureCounts'>featureCounts</a>, from reads aligned to one place.
+#     Ensembl has no 18S or 28S rRNA gene (only 5.8S is of biotype rRNA), so reads from ribosomal RNA are missing here
+#     even when there are many: see the Reads by class section."
 # plot_type: 'bargraph'
 # anchor: 'featurecounts_biotype'
 # pconfig:

@@ -46,7 +46,7 @@ follow it. Container engines: Apptainer, udocker or Docker. Executors: this serv
 | `counts.rds` | the same as a `SummarizedExperiment`, with gene annotation and the sample list |
 | `excluded.tsv` | libraries not counted (too few reads after trimming), with the reason |
 | `qc/multiqc_report.html` | the quality report; its first page lists libraries passed and flagged and any setting changed from the standard |
-| `qc/samples.tsv` | per library: reads at each step, shares dropped, the QuantSeq screen, a flag with its reason |
+| `qc/samples.tsv` | per library: reads at each step, shares dropped, the QuantSeq screen, the share of reads from ribosomal RNA, a flag with its reason |
 | `run/` | settings as run, tool versions, container images, the Nextflow trace and logs |
 | `README.txt` | what each file is, and the two lines of R that load the counts |
 
