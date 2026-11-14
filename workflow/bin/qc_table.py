@@ -111,6 +111,10 @@ def main():
         if umi and sh("tata_exact") < th.get("min_umi_spacer_share", 0):
             reasons.append(f"UMI spacer (TATA after the 6-nt UMI) in only {100 * sh('tata_exact'):.1f}% of reads, "
                            f"fewer than the minimum of {100 * th['min_umi_spacer_share']:.1f}%")
+        if not umi and "max_umi_spacer_share_no_umi" in th and sh("tata_exact") > th["max_umi_spacer_share_no_umi"]:
+            reasons.append(f"looks like a UMI library: UMI spacer (TATA after the 6-nt UMI) in {100 * sh('tata_exact'):.1f}% "
+                           f"of reads, more than the maximum of {100 * th['max_umi_spacer_share_no_umi']:.1f}% for a library "
+                           "without UMIs")
         flag = "flagged" if reasons else "pass"
         (flagged if reasons else passed).append((lib, "; ".join(reasons), context))
         vals = [lib, raw, trim, uni, multi, "" if dedup is None else dedup, counted,

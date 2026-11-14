@@ -27,7 +27,8 @@ def setup(tmp, umi=True, s2_reads=900000):
     (d / "featurecounts.txt.summary").write_text(
         "Status\tS1.bam\tS2.bam\nAssigned\t400000\t100\nUnassigned_MultiMapping\t50000\t20\nUnassigned_Ambiguity\t10000\t5\nUnassigned_NoFeatures\t40000\t30\n")
     (d / "thresholds.json").write_text(json.dumps({"min_assigned_reads": 1000000 // 10, "min_unique_share": 0.5,
-                                                   "min_umi_spacer_share": 0.5}))
+                                                   "min_umi_spacer_share": 0.5,
+                                                   "max_umi_spacer_share_no_umi": 0.05}))
     (d / "changes.tsv").write_text("setting\tstandard\tthis_run\nstrand\tforward\treverse\nkeep_bams\tfalse\ttrue\n")
     (d / "excluded.tsv").write_text("sample\treason\nS9\tfewer than 10000 reads after trimming (5)\n")
     return d
@@ -176,3 +177,23 @@ def test_multiqc_names_qualimap_by_library():
     # has one row in the general statistics
     cfg = (ROOT / "workflow" / "assets" / "multiqc_config.yml").read_text()
     assert "extra_fn_clean_exts" in cfg and "'.namesorted'" in cfg
+
+
+def test_no_umi_library_with_umi_spacer_is_flagged(tmp_path):
+    # no-UMI mode: TATA at bases 7-10 in more than 5% of reads means the library looks like a UMI library
+    # (S1 95%: flagged; S2 4.4%: not for this reason)
+    _, rows = run(setup(tmp_path, umi=False), umi=False)
+    assert rows[0]["flag"] == "flagged"
+    assert rows[0]["flag_reason"] == ("looks like a UMI library: UMI spacer (TATA after the 6-nt UMI) in 95.0% of "
+                                      "reads, more than the maximum of 5.0% for a library without UMIs")
+    assert "looks like a UMI library" not in rows[1]["flag_reason"]
+
+
+def test_umi_mode_ignores_no_umi_maximum(tmp_path):
+    _, rows = run(setup(tmp_path))
+    assert rows[0]["flag"] == "pass"
+
+
+def test_shipped_thresholds():
+    th = json.loads((ROOT / "schema" / "qc_thresholds.json").read_text())
+    assert th["max_umi_spacer_share_no_umi"] == 0.05
