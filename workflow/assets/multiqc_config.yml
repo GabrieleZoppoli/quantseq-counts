@@ -1,7 +1,10 @@
-# MultiQC for quantseq-counts: the summary for the biologist first, then the tools in the order of the steps.
+# MultiQC for quantseq-counts: the lay summary first, then the tools in the order of the steps.
 title: "quantseq-counts quality report"
 report_section_order:
   quantseq_summary:
     order: 1000
 show_analysis_paths: false
 show_analysis_time: false
+# Qualimap reads the name-sorted BAM <lib>.namesorted.bam: one row per library in the general statistics
+extra_fn_clean_exts:
+  - '.namesorted'

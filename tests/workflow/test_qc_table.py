@@ -55,7 +55,9 @@ def test_flag_reasons(tmp_path):
     _, rows = run(setup(tmp_path))
     s2 = rows[1]
     assert s2["flag"] == "flagged"
-    assert "counted 100 < 100000" in s2["flag_reason"] and "UMI spacer in 4.4% of reads < 50.0%" in s2["flag_reason"]
+    assert "only 100 reads counted on genes, fewer than the minimum of 100,000" in s2["flag_reason"]
+    assert ("UMI spacer (TATA after the 6-nt UMI) in only 4.4% of reads, fewer than the minimum of 50.0%"
+            in s2["flag_reason"])
 
 
 def test_no_umi_mode(tmp_path):
@@ -67,6 +69,8 @@ def test_first_page(tmp_path):
     out, _ = run(setup(tmp_path))
     html = (out / "summary_mqc.html").read_text()
     assert "1 of 2 libraries passed" in html and "S2" in html
+    assert "section_name: 'Lay summary'" in html and "biologist" not in html
+    assert "kept and counted" in html
     assert "strand" in html and "reverse" in html and "keep_bams" in html
     assert "S9" in html and "fewer than 10000" in html
 
@@ -152,3 +156,23 @@ def test_mt_rrna_na_when_gtf_has_none(tmp_path):
     d = setup(tmp_path); add_rrna(d, mt="NA")
     _, rows = run(d)
     assert rows[0]["mt_rrna_share"] == "NA" and rows[0]["rrna_45s_share"] == "0.3003"
+
+
+def test_unique_share_reason_and_rrna_in_lay_summary(tmp_path):
+    # a library whose uniquely aligned share is low because of rRNA: the reason says it plainly, and the lay
+    # summary adds the 45S rRNA share as context (samples.tsv keeps the reason alone)
+    d = setup(tmp_path)
+    (d / "S1.Log.final.out").write_text(STAR.format(inp=999000, uni=400000, multi=300000))
+    add_rrna(d, r=450000, u=400000, m=100000)
+    out, rows = run(d)
+    assert rows[0]["flag_reason"] == ("only 40.0% of trimmed reads aligned to a single place in the genome, "
+                                      "fewer than the minimum of 50.0%")
+    html = (out / "summary_mqc.html").read_text()
+    assert "45S rRNA: 45.0% of trimmed reads" in html
+
+
+def test_multiqc_names_qualimap_by_library():
+    # Qualimap reads the name-sorted BAM <lib>.namesorted.bam; MultiQC must strip the suffix so that each library
+    # has one row in the general statistics
+    cfg = (ROOT / "workflow" / "assets" / "multiqc_config.yml").read_text()
+    assert "extra_fn_clean_exts" in cfg and "'.namesorted'" in cfg

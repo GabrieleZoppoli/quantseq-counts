@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """qc/samples.tsv (reads at each stage, shares, the QuantSeq screen, a flag with its reason) and the first page
-of the quality report (summary_mqc.html) for the biologist: libraries passed and flagged, libraries excluded, and
+of the quality report (summary_mqc.html), the lay summary: libraries passed and flagged, libraries excluded, and
 the settings that differ from the standard. Python standard library only.
 Usage: qc_table.py --dir FOLDER --library fwd_umi|fwd_no_umi --thresholds thresholds.json --changes changes.tsv
                    --excluded excluded.tsv --out OUTDIR
@@ -100,15 +100,19 @@ def main():
         rshare = lambda k: "NA" if rr is None or rr[k] is None else f"{rr[k] / rr['input'] if rr['input'] else 0.0:.4f}"
         if rr is not None:
             chart.append([lib, rr["rrna_45s"], rr["unique_other"], rr["multi_other"], rr["not_aligned"]])
-        reasons = []
+        reasons, context = [], ""
         if counted < th.get("min_assigned_reads", 0):
-            reasons.append(f"counted {counted} < {th['min_assigned_reads']}")
+            reasons.append(f"only {counted:,} reads counted on genes, fewer than the minimum of {th['min_assigned_reads']:,}")
         if trim and uni / trim < th.get("min_unique_share", 0):
-            reasons.append(f"uniquely aligned {100 * uni / trim:.1f}% of trimmed reads < {100 * th['min_unique_share']:.1f}%")
+            reasons.append(f"only {100 * uni / trim:.1f}% of trimmed reads aligned to a single place in the genome, "
+                           f"fewer than the minimum of {100 * th['min_unique_share']:.1f}%")
+            if rr is not None and rr["input"]:
+                context = f" (45S rRNA: {100 * rr['rrna_45s'] / rr['input']:.1f}% of trimmed reads, see Reads by class)"
         if umi and sh("tata_exact") < th.get("min_umi_spacer_share", 0):
-            reasons.append(f"UMI spacer in {100 * sh('tata_exact'):.1f}% of reads < {100 * th['min_umi_spacer_share']:.1f}%")
+            reasons.append(f"UMI spacer (TATA after the 6-nt UMI) in only {100 * sh('tata_exact'):.1f}% of reads, "
+                           f"fewer than the minimum of {100 * th['min_umi_spacer_share']:.1f}%")
         flag = "flagged" if reasons else "pass"
-        (flagged if reasons else passed).append((lib, "; ".join(reasons)))
+        (flagged if reasons else passed).append((lib, "; ".join(reasons), context))
         vals = [lib, raw, trim, uni, multi, "" if dedup is None else dedup, counted,
                 f"{f.get('Unassigned_MultiMapping', 0) / total_fc:.4f}", f"{f.get('Unassigned_Ambiguity', 0) / total_fc:.4f}",
                 f"{sh('tata_exact'):.4f}", f"{sh('umi_with_n'):.4f}", f"{sh('polyA8_any'):.4f}", f"{sh('adapter12_any'):.4f}",
@@ -124,7 +128,8 @@ def main():
     erows = [r for r in erows if r and r[0] != "sample"]
     e = html.escape
     page = [f"<p><b>{len(passed)} of {len(libs)} libraries passed</b> the checks"
-            + (f"; {len(flagged)} flagged:</p><ul>" + "".join(f"<li>{e(l)}: {e(r)}</li>" for l, r in flagged) + "</ul>"
+            + (f"; {len(flagged)} flagged. Flagged libraries are kept and counted; the reason says which check each "
+               "one missed:</p><ul>" + "".join(f"<li>{e(l)}: {e(r)}{e(c)}</li>" for l, r, c in flagged) + "</ul>"
                if flagged else ".</p>")]
     if erows:
         page.append(f"<p>{len(erows)} not counted:</p><ul>" + "".join(f"<li>{e(r[0])}: {e(r[1])}</li>" for r in erows) + "</ul>")
@@ -133,7 +138,7 @@ def main():
                     + "".join(f"<li>{e(k)}: {e(v)} (standard: {e(s)})</li>" for k, s, v in changes) + "</ul>")
     else:
         page.append("<p>This run used the standard settings.</p>")
-    header = ("<!--\nid: 'quantseq_summary'\nsection_name: 'Summary for the biologist'\n-->\n")
+    header = ("<!--\nid: 'quantseq_summary'\nsection_name: 'Lay summary'\n-->\n")
     (out / "summary_mqc.html").write_text(header + "\n".join(page) + "\n")
 
 
