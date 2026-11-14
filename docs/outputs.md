@@ -19,7 +19,7 @@ which check it missed. The limits are in `schema/qc_thresholds.json`:
 - fewer than 500,000 reads counted on genes (both modes);
 - fewer than 50% of trimmed reads aligned to a single place in the genome (in the public whole-blood test libraries
   the missing share was ribosomal RNA: see below);
-- UMI mode: the UMI spacer (TATA at bases 7-10) in fewer than 50% of reads;
+- UMI mode: the UMI spacer (TATA at bases 7-10) in fewer than 75% of reads;
 - mode without UMIs: the spacer in more than 5% of reads ("looks like a UMI library"). Libraries without UMIs show it
   in 0.02-0.08% of reads (the 10 public test libraries of PRJNA1262383); a UMI library run in this mode keeps the UMI
   and spacer at the start of its reads and its PCR duplicates are not collapsed.
