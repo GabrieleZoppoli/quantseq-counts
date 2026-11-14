@@ -16,7 +16,7 @@ One folder per run (`outdir`):
 A flagged library is kept and counted; `flag_reason` in `qc/samples.tsv`, and the report's Lay summary, say in words
 which check it missed. The limits are in `schema/qc_thresholds.json`:
 
-- fewer than 1,000,000 reads counted on genes;
+- fewer than 500,000 reads counted on genes (both modes);
 - fewer than 50% of trimmed reads aligned to a single place in the genome (in the public whole-blood test libraries
   the missing share was ribosomal RNA: see below);
 - UMI mode: the UMI spacer (TATA at bases 7-10) in fewer than 50% of reads;

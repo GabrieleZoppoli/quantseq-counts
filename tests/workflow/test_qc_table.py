@@ -196,4 +196,4 @@ def test_umi_mode_ignores_no_umi_maximum(tmp_path):
 
 def test_shipped_thresholds():
     th = json.loads((ROOT / "schema" / "qc_thresholds.json").read_text())
-    assert th["max_umi_spacer_share_no_umi"] == 0.05
+    assert th["max_umi_spacer_share_no_umi"] == 0.05 and th["min_assigned_reads"] == 500000
