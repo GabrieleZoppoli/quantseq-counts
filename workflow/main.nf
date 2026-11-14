@@ -73,9 +73,10 @@ def trimmedReads(log_file) {  // as nf-core/rnaseq 3.26.0 (fastq_fastqc_umitools
     return total - filtered
 }
 
-// run/DONE marks a run that ended without error: `quantseq-counts run` refuses an output folder that holds one
+// run/DONE marks a run that ended without error: `quantseq-counts run` refuses an output folder that holds one.
+// Not written by a preview (`nextflow inspect`, which lists the images before the run starts, ends "successfully").
 workflow.onComplete = {
-    if (workflow.success) {
+    if (workflow.success && !workflow.preview) {
         file("${params.outdir}/run/DONE").text = "quantseq-counts ${params.package_version} run ${params.run_name} ended ${workflow.complete}\n"
     }
 }
