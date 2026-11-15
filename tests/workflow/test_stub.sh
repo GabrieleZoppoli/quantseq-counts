@@ -2,7 +2,8 @@
 # Stub run of the whole workflow on the synthetic data: every process is wired and runs its stub; checks the
 # processes that must and must not be in the run. Needs a Nextflow 25.04.8 (NXF=path, default: install's bin/nextflow).
 # Usage: bash tests/workflow/test_stub.sh [library]   (library: fwd_umi, default, fwd_no_umi, fwd_no_umi_dedup, or
-#   fwd_umi_rrna: the UMI mode with rrna_check true on the custom reference)
+#   fwd_umi_rrna: the UMI mode with rrna_check true on the custom reference, or all_excluded: every library below
+#   min_trimmed_reads, so the run must stop with a message instead of failing in featureCounts)
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"; LIB="${1:-fwd_umi}"
 NXF="${NXF:-$HERE/bin/nextflow}"; T="${KEEP:-$(mktemp -d)}"; [ -n "${KEEP:-}" ] || trap 'rm -rf "$T"' EXIT; mkdir -p "$T"
@@ -11,11 +12,12 @@ PYTHONPATH="$HERE/src" python3 - "$T" "$LIB" <<'PY'
 import sys
 from quantseq_counts import settings as st, __version__
 t, lib = sys.argv[1], sys.argv[2]
-extra = {"dedup_without_umi": True} if lib == "fwd_no_umi_dedup" else {"rrna_check": True} if lib == "fwd_umi_rrna" else {}
-lib = {"fwd_no_umi_dedup": "fwd_no_umi", "fwd_umi_rrna": "fwd_umi"}.get(lib, lib)
+extra = ({"dedup_without_umi": True} if lib == "fwd_no_umi_dedup" else {"rrna_check": True} if lib == "fwd_umi_rrna"
+         else {"min_trimmed_reads": 1} if lib == "all_excluded" else {})  # stub trimming reports count 0 reads
+lib = {"fwd_no_umi_dedup": "fwd_no_umi", "fwd_umi_rrna": "fwd_umi", "all_excluded": "fwd_umi"}.get(lib, lib)
 s = {"package_version": __version__, "run_name": "stub", "fastq_dir": f"{t}/data", "samples": f"{t}/data/samples.csv",
      "outdir": f"{t}/out", "reference": "custom", "fasta": f"{t}/data/genome.fa.gz", "gtf": f"{t}/data/genes.gtf.gz",
-     "reference_dir": f"{t}/ref", "library": lib, "min_trimmed_reads": 0, **extra}
+     "reference_dir": f"{t}/ref", "library": lib, **{"min_trimmed_reads": 0, **extra}}
 open(f"{t}/params.yaml", "w").write(st.dump_settings(s))
 PY
 # stand-ins for the tools, which answer only the version questions of the modules (stub runs need no real tools)
@@ -26,6 +28,12 @@ for c in STAR bam_stat.py fastqc featureCounts fq gawk infer_experiment.py junct
 [ "$(uname -s)" = Darwin ] && { printf '#!/bin/sh\ncat\n' > "$T/fakebin/sed"; chmod +x "$T/fakebin/sed"; }
 ( cd "$T" && PATH="$T/fakebin:$PATH" "$NXF" run "$HERE/workflow/main.nf" -stub-run -c "$HERE/workflow/conf/test.config" -params-file params.yaml -w work -ansi-log false > run.log 2>&1 )
 rc=$?; fail=0; ok() { echo "ok - $1"; }; ko() { echo "FAIL - $1"; fail=1; }
+if [ "$LIB" = all_excluded ]; then
+  [ $rc -ne 0 ] && ok "run stops" || ko "run stops"
+  grep -q "no library left to count" "$T/run.log" && ok "says no library is left to count" || { ko "says no library is left to count"; tail -20 "$T/run.log"; }
+  grep -q "FEATURECOUNTS_MAIN" "$T/out/run/trace.txt" 2>/dev/null && ko "featureCounts not started" || ok "featureCounts not started"
+  [ $fail -eq 0 ] && { echo "RESULT: PASS"; exit 0; } || { echo "RESULT: FAIL"; exit 1; }
+fi
 [ $rc -eq 0 ] && ok "stub run exits 0" || { ko "stub run exits 0"; tail -30 "$T/run.log"; }
 procs="$(awk -F'\t' 'NR > 1 {sub(/ \(.*/, "", $3); n = split($3, a, ":"); print a[n]}' "$T/out/run/trace.txt" | sort -u)"
 need="QUANTSEQ_SCREEN QC_TABLE MULTIQC FEATURECOUNTS_MAIN BUILD_OUTPUTS STAR_GENOMEGENERATE STAR_ALIGN SORT_NAME_THEN_POSITION TRIMGALORE FASTQC FQ_LINT SUBREAD_FEATURECOUNTS QUALIMAP_RNASEQ DUPRADAR RSEQC_READDISTRIBUTION"

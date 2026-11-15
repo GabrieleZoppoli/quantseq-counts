@@ -171,6 +171,8 @@ workflow {
 
     // ---- the main counts and the R outputs
     def ch_count_sorted = ch_count.map { m, b, _i -> [m.id, b] }.toSortedList { x, y -> x[0] <=> y[0] }
+        .map { l -> if (!l) error("no library left to count: every library has fewer than ${params.min_trimmed_reads} " +
+                                  "reads after trimming (setting min_trimmed_reads); the trimming reports are in qc/trimgalore"); l }
     FEATURECOUNTS_MAIN(ch_count_sorted.map { l -> l.collect { it[0] } }, ch_count_sorted.map { l -> l.collect { it[1] } },
                        ch_gtf.map { _m, g -> g })
     BUILD_OUTPUTS(FEATURECOUNTS_MAIN.out.counts, ch_gtf.map { _m, g -> g }, file(params.samples), ch_excluded)
