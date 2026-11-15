@@ -38,11 +38,14 @@ engine: 'apptainer'
 # Where the jobs run: on this server (local) or through a SLURM queue (slurm).
 executor: 'local'
 
-# Most cores the run may use at once on this server.
+# Most cores the run may use at once on this server; with SLURM, most cores one job may ask for.
 max_cpus: 12
 
-# Most memory the run may use at once on this server (for example 64 GB).
+# Most memory the run may use at once on this server (for example 64 GB); with SLURM, most memory one job may ask for.
 max_memory: '96 GB'
+
+# Most time one job may ask for (for example 24 h); with SLURM a request above the queue's limit is refused.
+max_time: '24 h'
 
 # SLURM partition (queue) to submit to.
 slurm_queue: null

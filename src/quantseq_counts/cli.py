@@ -110,12 +110,13 @@ def cmd_setup(args, ask) -> int:
     s["outdir"] = _question(ask, "outdir")
     s["engine"] = _question(ask, "engine")
     s["executor"] = _question(ask, "executor")
-    if s["executor"] == "local":
-        s["max_cpus"] = _question(ask, "max_cpus")
-        s["max_memory"] = _question(ask, "max_memory")
-    else:
+    if s["executor"] == "slurm":
         s["slurm_queue"] = _question(ask, "slurm_queue")
         s["slurm_account"] = _question(ask, "slurm_account", default="")  or None
+    s["max_cpus"] = _question(ask, "max_cpus")
+    s["max_memory"] = _question(ask, "max_memory")
+    if s["executor"] == "slurm":
+        s["max_time"] = _question(ask, "max_time")
     if ask("Change advanced settings? [n]\n").strip().lower() in ("y", "yes"):
         for k, e in st.SCHEMA.items():
             if e["group"] == "advanced":

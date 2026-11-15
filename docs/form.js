@@ -125,7 +125,7 @@ async function start() {
   const showConditional = () => {
     const a = answers();
     const vis = { fasta: a.reference === 'custom', gtf: a.reference === 'custom', slurm_queue: a.executor === 'slurm',
-      slurm_account: a.executor === 'slurm', max_cpus: a.executor === 'local', max_memory: a.executor === 'local',
+      slurm_account: a.executor === 'slurm', max_time: a.executor === 'slurm',
       udocker_dir: a.engine === 'udocker' };
     for (const [k, v] of Object.entries(vis)) document.querySelector(`.field[data-key="${k}"]`).hidden = !v;
     const w = warningsFor(a, schema);

@@ -36,6 +36,7 @@ def test_dry_run_slurm(tmp_path):
     assert "-resume" in argv
     cfg = launch.run_config(s, [str(tmp_path)])
     assert "queue = 'short'" in cfg and "--account=lab1" in cfg
+    assert "resourceLimits = [ cpus: 16, memory: '160 GB', time: '24 h' ]" in cfg
 
 
 def test_local_limits_in_config(tmp_path):

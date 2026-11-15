@@ -18,8 +18,9 @@ Every setting can be changed in the form, in `quantseq-counts setup` or in `sett
 | `reference_dir` | (empty) | Folder where the reference and its STAR index are kept and reused between runs. |
 | `engine` | `apptainer` | Container engine: apptainer (usual on servers without root), udocker, or docker. Values: `apptainer`, `udocker`, `docker`. |
 | `executor` | `local` | Where the jobs run: on this server (local) or through a SLURM queue (slurm). Values: `local`, `slurm`. |
-| `max_cpus` | `16` | Most cores the run may use at once on this server. |
-| `max_memory` | `160 GB` | Most memory the run may use at once on this server (for example 64 GB). |
+| `max_cpus` | `16` | Most cores the run may use at once on this server; with SLURM, most cores one job may ask for. |
+| `max_memory` | `160 GB` | Most memory the run may use at once on this server (for example 64 GB); with SLURM, most memory one job may ask for. |
+| `max_time` | `24 h` | Most time one job may ask for (for example 24 h); with SLURM a request above the queue's limit is refused. |
 | `slurm_queue` | (empty) | SLURM partition (queue) to submit to. |
 | `slurm_account` | (empty) | SLURM account to charge, if your cluster asks for one. |
 

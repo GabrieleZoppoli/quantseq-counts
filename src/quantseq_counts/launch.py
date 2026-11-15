@@ -34,7 +34,7 @@ def run_config(s: dict, mounts: list[str]) -> str:
     lines = [f"// Written by quantseq-counts {__version__} for run {s['run_name']}; do not edit, edit settings.yaml.",
              f"{eng}.runOptions = '{opts}'",
              "process {",
-             f"    resourceLimits = [ cpus: {s['max_cpus']}, memory: '{s['max_memory']}' ]"]
+             f"    resourceLimits = [ cpus: {s['max_cpus']}, memory: '{s['max_memory']}', time: '{s['max_time']}' ]"]
     if s["executor"] == "slurm":
         lines.append("    executor = 'slurm'")
         lines.append(f"    queue = '{s['slurm_queue']}'")

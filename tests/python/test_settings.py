@@ -3,7 +3,7 @@ from quantseq_counts import settings as st
 
 TABLE_KEYS = [
     "package_version", "run_name", "fastq_dir", "samples", "outdir", "library", "reference", "fasta", "gtf",
-    "reference_dir", "engine", "udocker_dir", "executor", "max_cpus", "max_memory", "slurm_queue", "slurm_account",
+    "reference_dir", "engine", "udocker_dir", "executor", "max_cpus", "max_memory", "max_time", "slurm_queue", "slurm_account",
     "umi_pattern", "dedup_algo", "trim_adapter", "star_extra_args", "star_threads", "strand", "count_multimappers",
     "dedup_without_umi", "deterministic_sort", "keep_bams", "keep_trimmed_fastq", "min_trimmed_reads",
     "skip_qualimap", "skip_rseqc", "skip_dupradar", "rrna_check",
@@ -130,3 +130,11 @@ def test_empty_value_means_the_default():
     d = st.with_defaults(s)
     assert d["max_cpus"] == 16 and d["engine"] == "apptainer" and d["strand"] == "forward" and d["star_threads"] is None
     assert st.changes_from_default(s) == []
+
+
+def test_max_time():
+    assert st.with_defaults(minimal())["max_time"] == "24 h"
+    s = minimal(); s["max_time"] = "12 h"
+    assert st.validate(s) == []
+    s["max_time"] = "a day"
+    assert any(e.startswith("max_time:") for e in st.validate(s))

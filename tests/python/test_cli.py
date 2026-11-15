@@ -216,3 +216,15 @@ def test_outdir_link_target_is_mounted(study, monkeypatch):
     (study / "out").symlink_to(target)
     assert run(study, "--foreground") == 0
     assert str(target.resolve()) in (target / "run" / "run.config").read_text()
+
+
+def test_setup_slurm_asks_the_job_limits(tmp_path, monkeypatch):
+    # with SLURM, max_cpus, max_memory and max_time are the most one job may ask for: setup asks all three
+    fq = tmp_path / "fq"; fq.mkdir(); fastq(fq / "a.fastq.gz")
+    prompts = []
+    script = iter(["s1", str(fq), "", "", "", str(tmp_path / "ref"), str(tmp_path / "out"), "", "slurm",
+                   "short", "", "8", "64 GB", "12 h", "n"])
+    monkeypatch.chdir(tmp_path)
+    assert cli.main(["setup"], ask=lambda prompt: prompts.append(prompt) or next(script)) == 0
+    s = st.load_settings(tmp_path / "settings.yaml")
+    assert s["slurm_queue"] == "short" and s["max_cpus"] == 8 and s["max_memory"] == "64 GB" and s["max_time"] == "12 h"

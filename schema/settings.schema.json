@@ -107,16 +107,23 @@
     "max_cpus": {
       "type": "integer",
       "default": 16,
-      "help": "Most cores the run may use at once on this server.",
+      "help": "Most cores the run may use at once on this server; with SLURM, most cores one job may ask for.",
       "group": "basic",
       "minimum": 1
     },
     "max_memory": {
       "type": "string",
       "default": "160 GB",
-      "help": "Most memory the run may use at once on this server (for example 64 GB).",
+      "help": "Most memory the run may use at once on this server (for example 64 GB); with SLURM, most memory one job may ask for.",
       "group": "basic",
       "pattern": "^[0-9]+ ?(GB|MB|TB)$"
+    },
+    "max_time": {
+      "type": "string",
+      "default": "24 h",
+      "help": "Most time one job may ask for (for example 24 h); with SLURM a request above the queue's limit is refused.",
+      "group": "basic",
+      "pattern": "^[0-9]+ ?(min|h|d)$"
     },
     "slurm_queue": {
       "type": "string",
