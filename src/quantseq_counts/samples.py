@@ -22,7 +22,8 @@ class Sample:
 def read_samples(path: Path) -> list[Sample]:
     text = Path(path).read_bytes().decode("utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
     lines = text.split("\n")
-    delim = "\t" if "\t" in lines[0] else ","
+    # tab (a paste from Excel), semicolon (CSV from Excel set to a comma-decimal language such as Italian), comma
+    delim = "\t" if "\t" in lines[0] else ";" if ";" in lines[0] and "," not in lines[0] else ","
     rows = list(csv.reader(io.StringIO(text), delimiter=delim))
     if not rows:
         raise ValueError(f"{path}: empty sample list")
@@ -40,6 +41,8 @@ def read_samples(path: Path) -> list[Sample]:
         name, fq, group = get(i_s), get(i_f), get(i_g)
         if not NAME.match(name):
             raise ValueError(f"{path}, line {n}: sample name {name!r} may hold only letters, digits, '.', '-', '_'")
+        if not name[0].isalnum():
+            raise ValueError(f"{path}, line {n}: sample name {name!r} must start with a letter or digit")
         if not fq:
             raise ValueError(f"{path}, line {n}: no FASTQ file for sample {name}")
         out.append(Sample(name, fq, group or None))

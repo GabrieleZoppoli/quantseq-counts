@@ -25,6 +25,7 @@ def test_reads_plain_list(tmp_path):
     "sample,fastq\r\nA1,a1.fastq.gz\r\nB2,b2.fastq.gz\r\n",
     "sample,fastq\nA1 , a1.fastq.gz \nB2,b2.fastq.gz\n\n\n",
     "sample\tfastq\nA1\ta1.fastq.gz\nB2\tb2.fastq.gz\n",
+    "sample;fastq\r\nA1;a1.fastq.gz\r\nB2;b2.fastq.gz\r\n",  # Excel in an Italian (or other comma-decimal) locale
 ])
 def test_excel_paste_variants(tmp_path, raw):
     p = tmp_path / "s.csv"
@@ -36,6 +37,15 @@ def test_bad_name_gives_line_number(tmp_path):
     p = tmp_path / "s.csv"
     p.write_text("sample,fastq\nA1,a1.fastq.gz\nmy sample,b.fastq.gz\n")
     with pytest.raises(ValueError, match="line 3"):
+        sm.read_samples(p)
+
+
+@pytest.mark.parametrize("name", ["-A1", ".A1"])
+def test_name_must_start_with_letter_or_digit(tmp_path, name):
+    # a leading '-' reads as an option to the tools, a leading '.' makes hidden files
+    p = tmp_path / "s.csv"
+    p.write_text(f"sample,fastq\n{name},a1.fastq.gz\n")
+    with pytest.raises(ValueError, match="line 2.*start with a letter or digit"):
         sm.read_samples(p)
 
 
