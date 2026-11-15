@@ -68,6 +68,9 @@ def engine_env(s: dict, run_dir: Path, install: Path) -> dict:
         env["UDOCKER_REGISTRY"] = "https://quay.io"
         env["UDOCKER_DIR"] = s.get("udocker_dir") or str(install / "udocker")
         env["PATH"] = str(shim_dir) + os.pathsep + env.get("PATH", "")
+    if s["engine"] == "apptainer":
+        # images pulled once and kept in the installation (Nextflow's default is each run's work folder)
+        env.setdefault("NXF_APPTAINER_CACHEDIR", str(install / "apptainer"))
     return env
 
 

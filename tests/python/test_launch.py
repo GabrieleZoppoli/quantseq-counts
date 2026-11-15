@@ -171,3 +171,13 @@ def test_inspect_failure_is_a_message_with_its_log(tmp_path):
     with pytest.raises(RuntimeError, match="inspect.log"):
         launch.inspect_processes(base(tmp_path, engine="docker"), rd, inst, dict(os.environ))
     assert "no such param" in (rd / "inspect.log").read_text()
+
+
+def test_apptainer_images_kept_in_the_installation(tmp_path, monkeypatch):
+    # Apptainer pulled the images into each run's work folder; they are now kept once, in <install>/apptainer,
+    # unless the user has chosen a cache folder (NXF_APPTAINER_CACHEDIR)
+    monkeypatch.delenv("NXF_APPTAINER_CACHEDIR", raising=False)
+    s = base(tmp_path, engine="apptainer"); rd = tmp_path / "run"; rd.mkdir()
+    assert launch.engine_env(s, rd, tmp_path / "install")["NXF_APPTAINER_CACHEDIR"] == str(tmp_path / "install" / "apptainer")
+    monkeypatch.setenv("NXF_APPTAINER_CACHEDIR", "/shared/sif")
+    assert launch.engine_env(s, rd, tmp_path / "install")["NXF_APPTAINER_CACHEDIR"] == "/shared/sif"
