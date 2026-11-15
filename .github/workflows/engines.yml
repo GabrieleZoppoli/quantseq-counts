@@ -49,13 +49,19 @@ jobs:
             "SelectTypeParameters=CR_Core_Memory" "ReturnToService=2" \
             "SlurmctldLogFile=/var/log/slurm/slurmctld.log" "SlurmdLogFile=/var/log/slurm/slurmd.log" \
             "TaskPlugin=task/none" "JobAcctGatherType=jobacct_gather/none" "MpiDefault=none" "SlurmdUser=root" \
-            "SlurmUser=slurm" "AccountingStorageType=accounting_storage/none" \
+            "SlurmUser=slurm" \
             "SchedulerType=sched/builtin" "PriorityType=priority/basic" \
             "NodeName=$H CPUs=$C RealMemory=$M State=UNKNOWN" "PartitionName=debug Nodes=$H Default=YES MaxTime=INFINITE State=UP" \
             | sudo tee /etc/slurm/slurm.conf
           sudo chown slurm: /var/spool/slurmctld /var/log/slurm
           sudo systemctl start munge && sudo systemctl start slurmctld && sudo systemctl start slurmd
           sleep 5 && sinfo
+      - name: SLURM runs a job (no accounting line in slurm.conf; accounting_storage/none is gone in 23.11)
+        timeout-minutes: 3
+        run: |
+          id=$(sbatch --parsable --wrap 'hostname' -o /tmp/smoke.out)
+          for i in $(seq 60); do squeue -h -j "$id" | grep -q . || break; sleep 2; done
+          squeue -a; cat /tmp/smoke.out; [ -s /tmp/smoke.out ] || { sudo tail -n 30 /var/log/slurm/slurmctld.log; exit 1; }
       - name: Install
         run: bash install.sh --prefix "$RUNNER_TEMP/qc"
       - name: Run through SLURM and check every command
