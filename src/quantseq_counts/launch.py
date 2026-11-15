@@ -128,8 +128,15 @@ def inspect_processes(s: dict, run_dir: Path, install: Path, env: dict) -> list[
     argv = [str(install / "bin" / "nextflow"), "inspect", str(install / "workflow" / "main.nf"),
             "-c", str(run_dir / "run.config"), "-params-file", str(run_dir / "settings.yaml"),
             "-profile", s["engine"]]
-    out = subprocess.run(argv, env=env, cwd=run_dir, capture_output=True, text=True, check=True).stdout
-    data = json.loads(out[out.index("{"):])
+    r = subprocess.run(argv, env=env, cwd=run_dir, capture_output=True, text=True)
+    out = r.stdout
+    try:
+        if r.returncode != 0:
+            raise ValueError(f"exit status {r.returncode}")
+        data = json.loads(out[out.index("{"):])
+    except ValueError as e:
+        (run_dir / "inspect.log").write_text(f"$ {' '.join(argv)}\n{out}\n{r.stderr}")
+        raise RuntimeError(f"nextflow could not read the run's settings ({e}): see {run_dir / 'inspect.log'}") from None
     return [(p["name"].split(":")[-1], p.get("container")) for p in data["processes"]]
 
 

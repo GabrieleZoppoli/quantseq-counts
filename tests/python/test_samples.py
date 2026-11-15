@@ -90,3 +90,11 @@ def test_disagreement():
     assert "UMI" in sm.umi_disagreement("fwd_umi", 0.1)
     assert sm.umi_disagreement("fwd_no_umi", 0.05) is None
     assert "UMI" in sm.umi_disagreement("fwd_no_umi", 0.8)
+
+
+def test_damaged_gzip_is_a_message(tmp_path):
+    p = tmp_path / "a.fastq.gz"
+    fastq(p, ["ACGTACTATAGGG"] * 2000)
+    p.write_bytes(p.read_bytes()[:200])  # cut short, as an interrupted copy
+    with pytest.raises(ValueError, match="a.fastq.gz.*cannot be read"):
+        sm.probe_umi(p)

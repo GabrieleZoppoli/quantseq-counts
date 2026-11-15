@@ -95,7 +95,10 @@ def cmd_setup(args, ask) -> int:
         break
     s["samples"] = "samples.csv"
     s["library"] = _question(ask, "library")
-    share = sm.probe_umi(fq / rows[0].fastq)
+    try:
+        share = sm.probe_umi(fq / rows[0].fastq)
+    except ValueError as e:
+        _err(str(e)); return CHECK_FAILED
     msg = sm.umi_disagreement(s["library"], share)
     if msg:
         _err("warning: " + msg)
@@ -168,7 +171,10 @@ def cmd_run(args, ask) -> int:
             _err(x)
         return CHECK_FAILED
     for r in rows:
-        msg = sm.umi_disagreement(s["library"], sm.probe_umi(fq / r.fastq))
+        try:
+            msg = sm.umi_disagreement(s["library"], sm.probe_umi(fq / r.fastq))
+        except ValueError as e:
+            _err(str(e)); return CHECK_FAILED
         if msg:
             warnings.append(f"{r.name}: {msg}")
     warnings += st.warnings_for(s)
@@ -199,7 +205,10 @@ def cmd_run(args, ask) -> int:
         return OK
     launch.write_run_files(s, samples_file, run_dir, mounts)
     env = launch.engine_env(s, run_dir, install)
-    procs = launch.inspect_processes(s, run_dir, install, env)
+    try:
+        procs = launch.inspect_processes(s, run_dir, install, env)
+    except RuntimeError as e:
+        _err(str(e)); return CHECK_FAILED
     pins = launch.load_pins(install)
     launch.write_containers(procs, run_dir, pins)
     if s["engine"] == "udocker":

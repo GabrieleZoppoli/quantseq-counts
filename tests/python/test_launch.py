@@ -1,4 +1,6 @@
 import os
+
+import pytest
 from pathlib import Path
 
 from quantseq_counts import __version__, launch
@@ -159,3 +161,13 @@ def test_pins_table_loaded():
     pins = launch.load_pins(Path(__file__).resolve().parents[2])
     assert "biocontainers/fastqc:0.12.1--hdfd78af_0" in pins
     assert pins["biocontainers/fastqc:0.12.1--hdfd78af_0"]["digest"].startswith("sha256:")
+
+
+def test_inspect_failure_is_a_message_with_its_log(tmp_path):
+    # nextflow inspect failing (a broken settings file, no Java): a clear error naming the log, not a traceback
+    inst = tmp_path / "inst"; (inst / "bin").mkdir(parents=True)
+    _fake(inst / "bin" / "nextflow", "echo 'ERROR ~ no such param' >&2; exit 1\n")
+    rd = tmp_path / "run"; rd.mkdir()
+    with pytest.raises(RuntimeError, match="inspect.log"):
+        launch.inspect_processes(base(tmp_path, engine="docker"), rd, inst, dict(os.environ))
+    assert "no such param" in (rd / "inspect.log").read_text()

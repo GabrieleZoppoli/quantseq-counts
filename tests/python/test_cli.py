@@ -192,3 +192,18 @@ def test_setup_keeps_existing_files_unless_told(tmp_path, monkeypatch, capsys):
     assert rc == cli.REFUSED and len(prompts) == 1 and "samples.csv" in prompts[0]
     assert (tmp_path / "samples.csv").read_text() == "sample,fastq\nmine,mine.fastq.gz\n"
     assert not (tmp_path / "settings.yaml").exists()
+
+
+def test_run_with_damaged_fastq_stops_with_a_message(study, capsys):
+    p = study / "fq" / "a.fastq.gz"
+    p.write_bytes(p.read_bytes()[:30])
+    assert run(study) == cli.CHECK_FAILED
+    assert "a.fastq.gz" in capsys.readouterr().err
+
+
+def test_run_stops_when_inspect_fails(study, monkeypatch, capsys):
+    def boom(s, rd, inst, env):
+        raise RuntimeError("nextflow inspect failed: see /x/run/inspect.log")
+    monkeypatch.setattr(cli.launch, "inspect_processes", boom)
+    assert run(study) == cli.CHECK_FAILED
+    assert "inspect.log" in capsys.readouterr().err

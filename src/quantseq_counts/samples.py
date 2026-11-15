@@ -83,13 +83,16 @@ def _open(path: Path):
 def probe_umi(fastq: Path, n: int = 10000) -> float:
     """Share of the first n reads with the QuantSeq UMI spacer TATA at bases 7-10."""
     total = hits = 0
-    with _open(fastq) as f:
-        for i, line in enumerate(f):
-            if i % 4 == 1:
-                total += 1
-                hits += line[6:10] == "TATA"
-                if total >= n:
-                    break
+    try:
+        with _open(fastq) as f:
+            for i, line in enumerate(f):
+                if i % 4 == 1:
+                    total += 1
+                    hits += line[6:10] == "TATA"
+                    if total >= n:
+                        break
+    except (OSError, EOFError, UnicodeDecodeError) as e:  # gzip.BadGzipFile is an OSError
+        raise ValueError(f"{fastq}: cannot be read (damaged or incomplete file? {e})") from None
     return hits / total if total else 0.0
 
 
