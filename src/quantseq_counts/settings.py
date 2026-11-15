@@ -19,9 +19,14 @@ def load_settings(path: Path) -> dict:
     return data
 
 
+def _blank(v) -> bool:
+    return v is None or v == ""
+
+
 def with_defaults(s: dict) -> dict:
+    """The settings with every missing or blank (null, "") value replaced by its default."""
     out = {k: e["default"] for k, e in SCHEMA.items()}
-    out.update(s)
+    out.update({k: v for k, v in s.items() if not (k in SCHEMA and _blank(v))})
     return out
 
 
@@ -70,7 +75,7 @@ def changes_from_default(s: dict) -> list[tuple]:
     # paths, names and the version are the run's own facts, not changes from the standard
     own = lambda e: e.get("required") or e.get("required_if") or e["type"] == "path"
     return [(k, e["default"], s[k]) for k, e in SCHEMA.items()
-            if k in s and not own(e) and s[k] != e["default"]]
+            if k in s and not own(e) and not _blank(s[k]) and s[k] != e["default"]]
 
 
 def warnings_for(s: dict) -> list[str]:

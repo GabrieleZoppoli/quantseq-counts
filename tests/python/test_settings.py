@@ -120,3 +120,13 @@ def test_rrna_check_written_as_yaml():
     s = minimal(); s["rrna_check"] = True
     assert "\nrrna_check: true\n" in st.dump_settings(s)
     assert "\nrrna_check: 'auto'\n" in st.dump_settings(minimal())
+
+
+def test_empty_value_means_the_default():
+    # a form field emptied (null) or a blank value in settings.yaml: the setting takes its default, it does not
+    # reach the workflow as null; settings whose default is null (star_threads) stay null
+    s = minimal(); s.update({"max_cpus": None, "engine": None, "strand": "", "star_threads": None})
+    assert st.validate(s) == []
+    d = st.with_defaults(s)
+    assert d["max_cpus"] == 16 and d["engine"] == "apptainer" and d["strand"] == "forward" and d["star_threads"] is None
+    assert st.changes_from_default(s) == []
