@@ -198,3 +198,22 @@ def test_shipped_thresholds():
     th = json.loads((ROOT / "schema" / "qc_thresholds.json").read_text())
     assert th["max_umi_spacer_share_no_umi"] == 0.05 and th["min_assigned_reads"] == 500000
     assert th["min_umi_spacer_share"] == 0.75
+
+
+def test_excluded_library_has_a_row(tmp_path):
+    # S9 had too few reads after trimming: not aligned, not counted, but listed in samples.tsv with what is known
+    d = setup(tmp_path)
+    (d / "screen.tsv").write_text((d / "screen.tsv").read_text() + "S9\t6\t75.0\t0\t6\t0\t0\n")
+    (d / "S9_trimmed.fastq.gz_trimming_report.txt").write_text(TRIM.format(n=6, short=1))
+    _, rows = run(d)
+    assert [r["library"] for r in rows] == ["S1", "S2", "S9"]
+    s9 = rows[2]
+    assert s9["raw"] == "6" and s9["trimmed"] == "5" and s9["aligned_unique"] == "" and s9["counted"] == ""
+    assert s9["umi_spacer_share"] == "1.0000" and s9["rrna_45s_share"] == "NA"
+    assert s9["flag"] == "excluded" and s9["flag_reason"] == "fewer than 10000 reads after trimming (5)"
+
+
+def test_excluded_library_without_its_files(tmp_path):
+    _, rows = run(setup(tmp_path))
+    s9 = rows[2]
+    assert s9["library"] == "S9" and s9["raw"] == "" and s9["trimmed"] == "" and s9["flag"] == "excluded"

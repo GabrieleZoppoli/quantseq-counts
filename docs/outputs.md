@@ -8,7 +8,8 @@ One folder per run (`outdir`):
 - `counts.rds`: `readRDS("counts.rds")` gives a `SummarizedExperiment` with the same counts (`assay(se)`), the gene
   annotation (`rowData(se)`: id, name, biotype, chromosome, start, end, strand, length) and the sample list with its
   group column (`colData(se)`).
-- `excluded.tsv`: libraries not counted (too few reads after trimming), with the reason.
+- `excluded.tsv`: libraries not counted (too few reads after trimming, setting `min_trimmed_reads`), with the reason.
+  They also have a row in `qc/samples.tsv` (flag `excluded`, with their raw and trimmed reads and read screen).
 - `qc/multiqc_report.html`, `qc/samples.tsv`, and the per-tool folders.
 
 ## Flags

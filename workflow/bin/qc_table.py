@@ -122,14 +122,25 @@ def main():
                 f"{sh('tata_exact'):.4f}", f"{sh('umi_with_n'):.4f}", f"{sh('polyA8_any'):.4f}", f"{sh('adapter12_any'):.4f}",
                 rshare("rrna_45s"), rshare("mt_rrna"), flag, "; ".join(reasons)]
         lines.append("\t".join(map(str, vals)))
+    # libraries excluded before alignment (too few reads after trimming): a row with what is known about them
+    eh, erows = table(Path(a.excluded)) if Path(a.excluded).exists() else ([], [])
+    erows = [r for r in erows if r and r[0] != "sample"]
+    for r in erows:
+        lib, sc = r[0], screen.get(r[0])
+        raw = int(sc["reads"]) if sc else None
+        tf = d / f"{lib}_trimmed.fastq.gz_trimming_report.txt"
+        sh = (lambda k: f"{int(sc[k]) / raw:.4f}" if raw else "") if sc else (lambda k: "")
+        vals = [lib, "" if raw is None else raw, trimmed(tf) if tf.exists() else "", "", "", "", "", "", "",
+                sh("tata_exact"), sh("umi_with_n"), sh("polyA8_any"), sh("adapter12_any"), "NA", "NA",
+                "excluded", r[1] if len(r) > 1 else ""]
+        lines.append("\t".join(map(str, vals)))
+    lines = lines[:1] + sorted(lines[1:], key=lambda l: l.split("\t", 1)[0])
     (out / "samples.tsv").write_text("\n".join(lines) + "\n")
     if chart:
         (out / "read_classes_mqc.tsv").write_text(
             CHART + "\t".join(["Sample"] + CLASSES) + "\n" + "".join("\t".join(map(str, r)) + "\n" for r in chart))
 
     _, changes = table(Path(a.changes))
-    eh, erows = table(Path(a.excluded)) if Path(a.excluded).exists() else ([], [])
-    erows = [r for r in erows if r and r[0] != "sample"]
     e = html.escape
     page = [f"<p><b>{len(passed)} of {len(libs)} libraries passed</b> the checks"
             + (f"; {len(flagged)} flagged. Flagged libraries are kept and counted; the reason says which check each "
