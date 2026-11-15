@@ -192,7 +192,7 @@ def cmd_run(args, ask) -> int:
     s["fastq_dir"] = str(fq.absolute())
     install = Path(args.install) if args.install else default_install()
     run_dir = out / "run"
-    paths = [fq] + [fq / r.fastq for r in rows] + [Path(s["reference_dir"]), out.parent]
+    paths = [fq] + [fq / r.fastq for r in rows] + [Path(s["reference_dir"]), out.parent] + ([out] if out.exists() else [])
     if s["reference"] == "custom":
         paths += [Path(s["fasta"]), Path(s["gtf"])]
     mounts = launch.container_mounts(paths)

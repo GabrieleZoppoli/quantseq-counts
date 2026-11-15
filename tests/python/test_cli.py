@@ -207,3 +207,12 @@ def test_run_stops_when_inspect_fails(study, monkeypatch, capsys):
     monkeypatch.setattr(cli.launch, "inspect_processes", boom)
     assert run(study) == cli.CHECK_FAILED
     assert "inspect.log" in capsys.readouterr().err
+
+
+def test_outdir_link_target_is_mounted(study, monkeypatch):
+    # outdir is a symbolic link to a folder elsewhere: the containers must see the link's target
+    monkeypatch.setattr(cli.launch, "run_foreground", lambda argv, env, run_dir: 0)
+    target = study.parent / (study.name + "_elsewhere") / "results"; target.mkdir(parents=True)
+    (study / "out").symlink_to(target)
+    assert run(study, "--foreground") == 0
+    assert str(target.resolve()) in (target / "run" / "run.config").read_text()
