@@ -23,7 +23,7 @@ jobs:
         run: node tests/form/test_form.mjs
       - name: Stub runs of the workflow
         run: |
-          for m in fwd_umi fwd_no_umi fwd_no_umi_dedup fwd_umi_rrna all_excluded; do NXF="$RUNNER_TEMP/qc/bin/nextflow" bash tests/workflow/test_stub.sh $m; done
+          for m in fwd_umi fwd_no_umi fwd_no_umi_dedup fwd_umi_rrna all_excluded reuse; do NXF="$RUNNER_TEMP/qc/bin/nextflow" bash tests/workflow/test_stub.sh $m; done
           NXF="$RUNNER_TEMP/qc/bin/nextflow" bash tests/workflow/test_pins.sh
           NXF="$RUNNER_TEMP/qc/bin/nextflow" bash tests/workflow/test_inspect_no_done.sh
       - name: QC table and R outputs

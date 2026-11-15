@@ -51,6 +51,16 @@ def referenceId() {
     return 'custom_' + "${f.toAbsolutePath()}:${f.size()}:${g.toAbsolutePath()}:${g.size()}".md5().take(12)
 }
 
+// A stored reference is reused only when its MANIFEST (written last) lists the genome, annotation, BED and STAR index
+// and every file it lists is still there; otherwise it is prepared again
+def storedReferenceComplete(dir) {
+    def m = file("${dir}/MANIFEST")
+    if (!m.exists()) return false
+    def listed = m.readLines().findAll { l -> l.trim() }.collect { l -> l.trim().split(/\s+/, 2)[-1].replaceFirst(/^\.\//, '') }
+    if (!(['genome.fa', 'genes.gtf', 'genes.bed'].every { f -> f in listed }) || !listed.any { f -> f.startsWith('star/') }) return false
+    return listed.every { f -> file("${dir}/${f}").exists() }
+}
+
 // One "process<TAB>tool<TAB>version" row per tool: from a version tuple, or from an older module's versions.yml
 def versionRows(v) {
     if (v instanceof List && v.size() == 3) return ["${v[0].toString().tokenize(':')[-1]}\t${v[1]}\t${v[2]}"]
@@ -96,7 +106,7 @@ workflow {
     def ref = [id: referenceId()]
     def stored = file("${params.reference_dir}/${ref.id}")
     def ch_fasta; def ch_gtf; def ch_bed; def ch_index
-    if (file("${stored}/MANIFEST").exists()) {
+    if (storedReferenceComplete(stored)) {
         ch_fasta = channel.value([ref, file("${stored}/genome.fa")])
         ch_gtf   = channel.value([ref, file("${stored}/genes.gtf")])
         ch_bed   = channel.value(file("${stored}/genes.bed"))

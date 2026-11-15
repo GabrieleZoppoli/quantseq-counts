@@ -3,7 +3,8 @@
 # processes that must and must not be in the run. Needs a Nextflow 25.04.8 (NXF=path, default: install's bin/nextflow).
 # Usage: bash tests/workflow/test_stub.sh [library]   (library: fwd_umi, default, fwd_no_umi, fwd_no_umi_dedup, or
 #   fwd_umi_rrna: the UMI mode with rrna_check true on the custom reference, or all_excluded: every library below
-#   min_trimmed_reads, so the run must stop with a message instead of failing in featureCounts)
+#   min_trimmed_reads, so the run must stop with a message instead of failing in featureCounts), or reuse: a second
+#   run reuses the stored reference, a third rebuilds it after a file listed in its MANIFEST was removed)
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")/../.." && pwd)"; LIB="${1:-fwd_umi}"
 NXF="${NXF:-$HERE/bin/nextflow}"; T="${KEEP:-$(mktemp -d)}"; [ -n "${KEEP:-}" ] || trap 'rm -rf "$T"' EXIT; mkdir -p "$T"
@@ -14,7 +15,7 @@ from quantseq_counts import settings as st, __version__
 t, lib = sys.argv[1], sys.argv[2]
 extra = ({"dedup_without_umi": True} if lib == "fwd_no_umi_dedup" else {"rrna_check": True} if lib == "fwd_umi_rrna"
          else {"min_trimmed_reads": 1} if lib == "all_excluded" else {})  # stub trimming reports count 0 reads
-lib = {"fwd_no_umi_dedup": "fwd_no_umi", "fwd_umi_rrna": "fwd_umi", "all_excluded": "fwd_umi"}.get(lib, lib)
+lib = {"fwd_no_umi_dedup": "fwd_no_umi", "fwd_umi_rrna": "fwd_umi", "all_excluded": "fwd_umi", "reuse": "fwd_umi"}.get(lib, lib)
 s = {"package_version": __version__, "run_name": "stub", "fastq_dir": f"{t}/data", "samples": f"{t}/data/samples.csv",
      "outdir": f"{t}/out", "reference": "custom", "fasta": f"{t}/data/genome.fa.gz", "gtf": f"{t}/data/genes.gtf.gz",
      "reference_dir": f"{t}/ref", "library": lib, **{"min_trimmed_reads": 0, **extra}}
@@ -28,6 +29,20 @@ for c in STAR bam_stat.py fastqc featureCounts fq gawk infer_experiment.py junct
 [ "$(uname -s)" = Darwin ] && { printf '#!/bin/sh\ncat\n' > "$T/fakebin/sed"; chmod +x "$T/fakebin/sed"; }
 ( cd "$T" && PATH="$T/fakebin:$PATH" "$NXF" run "$HERE/workflow/main.nf" -stub-run -c "$HERE/workflow/conf/test.config" -params-file params.yaml -w work -ansi-log false > run.log 2>&1 )
 rc=$?; fail=0; ok() { echo "ok - $1"; }; ko() { echo "FAIL - $1"; fail=1; }
+if [ "$LIB" = reuse ]; then
+  stub_again() {  # a fresh outdir and work folder, the same reference_dir
+    rm -rf "$T/out" "$T/work"
+    ( cd "$T" && PATH="$T/fakebin:$PATH" "$NXF" run "$HERE/workflow/main.nf" -stub-run -c "$HERE/workflow/conf/test.config" -params-file params.yaml -w work -ansi-log false > run.log 2>&1 )
+  }
+  stored() { awk -F'\t' 'NR > 1 && $3 ~ /STORE_REFERENCE/' "$T/out/run/trace.txt" | wc -l | tr -d ' '; }
+  [ $rc -eq 0 ] && [ "$(stored)" = 1 ] && ok "first run stores the reference" || ko "first run stores the reference"
+  ref=$(ls -d "$T"/ref/custom_* | head -1); mkdir -p "$ref.part"
+  stub_again; [ $? -eq 0 ] && [ "$(stored)" = 0 ] && ok "second run reuses it" || ko "second run reuses it"
+  rm -rf "$ref/star"
+  stub_again; [ $? -eq 0 ] && [ "$(stored)" = 1 ] && ok "a file listed in MANIFEST missing: rebuilt" || ko "a file listed in MANIFEST missing: rebuilt"
+  [ -d "$ref/star" ] && ok "rebuilt store complete" || ko "rebuilt store complete"
+  [ $fail -eq 0 ] && { echo "RESULT: PASS"; exit 0; } || { echo "RESULT: FAIL"; exit 1; }
+fi
 if [ "$LIB" = all_excluded ]; then
   [ $rc -ne 0 ] && ok "run stops" || ko "run stops"
   grep -q "no library left to count" "$T/run.log" && ok "says no library is left to count" || { ko "says no library is left to count"; tail -20 "$T/run.log"; }
