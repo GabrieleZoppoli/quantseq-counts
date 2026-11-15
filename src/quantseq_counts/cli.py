@@ -67,6 +67,10 @@ def _samples_from_names(fastq_dir: Path) -> str:
 
 
 def cmd_setup(args, ask) -> int:
+    there = [f for f in ("settings.yaml", "samples.csv") if Path(f).exists()]
+    if there and ask(f"{' and '.join(there)} already in this folder; replace? [n]\n").strip().lower() not in ("y", "yes"):
+        _err(f"nothing written: {' and '.join(there)} kept (run setup in another folder, or answer y)")
+        return REFUSED
     s = {"package_version": __version__}
     s["run_name"] = _question(ask, "run_name")
     s["fastq_dir"] = _question(ask, "fastq_dir", check=_exists_dir)

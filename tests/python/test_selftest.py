@@ -58,3 +58,17 @@ def test_write_mode_does_not_claim_a_check(tmp_path, monkeypatch, capsys):
     rc = selftest.run_selftest(Path(__file__).resolve().parents[2], "docker", tmp_path / "w", 4, "14 GB", ["fwd_umi"], write_expected=True)
     out = capsys.readouterr().out
     assert rc == 0 and "wrote" in out and "installation works" not in out
+
+
+def test_second_test_in_the_same_folder_uses_a_new_outdir(tmp_path):
+    # a finished test run (run/DONE) is not reused: the run would refuse it and the test would report TEST FAILED
+    from pathlib import Path
+    root = Path(__file__).resolve().parents[2]
+    s1, _ = selftest.selftest_settings(root, "fwd_umi", "docker", tmp_path, 4, "14 GB")
+    assert s1["outdir"] == str(tmp_path / "out_fwd_umi")
+    (tmp_path / "out_fwd_umi" / "run").mkdir(parents=True); (tmp_path / "out_fwd_umi" / "run" / "DONE").write_text("")
+    s2, _ = selftest.selftest_settings(root, "fwd_umi", "docker", tmp_path, 4, "14 GB")
+    assert s2["outdir"] == str(tmp_path / "out_fwd_umi_2")
+    (tmp_path / "out_fwd_umi_2").mkdir()  # an interrupted run (no DONE) is resumed in place
+    s3, _ = selftest.selftest_settings(root, "fwd_umi", "docker", tmp_path, 4, "14 GB")
+    assert s3["outdir"] == str(tmp_path / "out_fwd_umi_2")

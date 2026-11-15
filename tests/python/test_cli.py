@@ -181,3 +181,14 @@ def test_missing_custom_reference_stops(study, capsys):
     assert run(study, "--dry-run") == 2
     err = capsys.readouterr().err
     assert "nope.fa.gz" in err and "nope.gtf.gz" in err
+
+
+def test_setup_keeps_existing_files_unless_told(tmp_path, monkeypatch, capsys):
+    # settings.yaml or samples.csv already in the folder: setup asks first, and "n" (the default) leaves them alone
+    (tmp_path / "samples.csv").write_text("sample,fastq\nmine,mine.fastq.gz\n")
+    monkeypatch.chdir(tmp_path)
+    prompts = []
+    rc = cli.main(["setup"], ask=lambda prompt: prompts.append(prompt) or "")
+    assert rc == cli.REFUSED and len(prompts) == 1 and "samples.csv" in prompts[0]
+    assert (tmp_path / "samples.csv").read_text() == "sample,fastq\nmine,mine.fastq.gz\n"
+    assert not (tmp_path / "settings.yaml").exists()

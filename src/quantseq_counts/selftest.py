@@ -40,8 +40,12 @@ def selftest_settings(root: Path, library: str, engine: str, workdir: Path, cpus
     workdir = Path(workdir); workdir.mkdir(parents=True, exist_ok=True)
     samples = workdir / f"samples_{library}.csv"
     samples.write_text("sample,fastq,group\n" + "".join(f"{r['run']},{r['run']}.fastq.gz,\n" for r in rows))
+    # a finished test run is never reused (the run refuses it); an unfinished one is resumed in place
+    out, k = workdir / f"out_{library}", 1
+    while (out / "run" / "DONE").exists():
+        k += 1; out = workdir / f"out_{library}_{k}"
     s = {"package_version": __version__, "run_name": f"selftest_{library}", "fastq_dir": str(pub),
-         "samples": str(samples), "outdir": str(workdir / f"out_{library}"), "reference": "custom",
+         "samples": str(samples), "outdir": str(out), "reference": "custom",
          "fasta": str(pub / "reference" / "chr22.fa.gz"), "gtf": str(pub / "reference" / "chr22.gtf.gz"),
          "reference_dir": str(workdir / "reference"), "library": library, "engine": engine,
          "max_cpus": cpus, "max_memory": memory, "min_trimmed_reads": 0}
