@@ -182,3 +182,29 @@ def test_apptainer_images_kept_in_the_installation(tmp_path, monkeypatch):
     assert launch.engine_env(s, rd, tmp_path / "install")["NXF_APPTAINER_CACHEDIR"] == str(tmp_path / "install" / "apptainer")
     monkeypatch.setenv("NXF_APPTAINER_CACHEDIR", "/shared/sif")
     assert launch.engine_env(s, rd, tmp_path / "install")["NXF_APPTAINER_CACHEDIR"] == "/shared/sif"
+
+
+def test_docker_pulls_missing_images_one_at_a_time(tmp_path):
+    # integra, 16 Nov 2026: the Docker daemon had no proxy setting, Nextflow's own pulls timed out inside the run and
+    # the user was told only "see nextflow.log". Images are now pulled before the run, absent ones only.
+    b = tmp_path / "bin"; b.mkdir()
+    log = tmp_path / "calls.txt"
+    _fake(b / "docker", f'echo "$@" >> {log}\n'
+                        'case "$1 $2 $3" in "image inspect q.io/a@sha256:1") exit 0;; "image inspect"*) exit 1;; esac\n'
+                        'case "$2" in c.io/b@*) echo "Error response from daemon: Get https://c.io/v2/: timeout" >&2; exit 1;; esac\n'
+                        'exit 0\n')
+    rd = tmp_path / "run"; rd.mkdir()
+    env = dict(os.environ, PATH=f"{b}{os.pathsep}{os.environ['PATH']}")
+    failed = launch.docker_pull(["q.io/a@sha256:1", "c.io/b@sha256:2", "d.io/c@sha256:3"], env, rd)
+    assert failed == ["c.io/b@sha256:2"]
+    calls = log.read_text().splitlines()
+    assert "pull q.io/a@sha256:1" not in calls
+    assert "pull c.io/b@sha256:2" in calls and "pull d.io/c@sha256:3" in calls
+    assert "timeout" in (rd / "images.log").read_text()
+
+
+def test_docker_missing_is_a_failure_not_a_crash(tmp_path):
+    rd = tmp_path / "run"; rd.mkdir()
+    env = dict(os.environ, PATH=str(tmp_path / "empty"))
+    assert launch.docker_pull(["q.io/a@sha256:1"], env, rd) == ["q.io/a@sha256:1"]
+    assert "not found" in (rd / "images.log").read_text()

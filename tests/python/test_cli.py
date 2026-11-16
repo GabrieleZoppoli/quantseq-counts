@@ -35,6 +35,7 @@ def no_image_pulls(monkeypatch):
     monkeypatch.setattr(cli.update, "notice", lambda: None)
     monkeypatch.setattr(cli.launch, "inspect_processes", lambda s, rd, inst, env: [("P", "x/y:1")])
     monkeypatch.setattr(cli.launch, "udocker_pull", lambda images, env, rd, pins=None: [])
+    monkeypatch.setattr(cli.launch, "docker_pull", lambda images, env, rd: [])
 
 
 def run(study, *extra):
@@ -228,3 +229,22 @@ def test_setup_slurm_asks_the_job_limits(tmp_path, monkeypatch):
     assert cli.main(["setup"], ask=lambda prompt: prompts.append(prompt) or next(script)) == 0
     s = st.load_settings(tmp_path / "settings.yaml")
     assert s["slurm_queue"] == "short" and s["max_cpus"] == 8 and s["max_memory"] == "64 GB" and s["max_time"] == "12 h"
+
+
+def test_docker_failed_pull_stops_with_a_plain_reason(study, monkeypatch, capsys):
+    s = yaml.safe_load((study / "settings.yaml").read_text()); s["engine"] = "docker"
+    (study / "settings.yaml").write_text(yaml.safe_dump(s))
+    monkeypatch.setattr(cli.launch, "docker_pull", lambda images, env, rd: ["x/y:1"])
+    monkeypatch.setattr(cli.launch, "start", lambda *a: pytest.fail("must not start"))
+    assert run(study) == 2
+    err = capsys.readouterr().err
+    assert "x/y:1" in err and "proxy" in err and "udocker" in err
+
+
+def test_docker_with_slurm_does_not_pull_on_this_machine(study, monkeypatch):
+    s = yaml.safe_load((study / "settings.yaml").read_text())
+    s.update(engine="docker", executor="slurm", slurm_queue="q")
+    (study / "settings.yaml").write_text(yaml.safe_dump(s))
+    monkeypatch.setattr(cli.launch, "docker_pull", lambda *a: pytest.fail("the nodes pull, not this machine"))
+    monkeypatch.setattr(cli.launch, "start", lambda *a: 1)
+    assert run(study) == 0

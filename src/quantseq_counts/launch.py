@@ -199,6 +199,28 @@ def udocker_pull(images: list[str], env: dict, run_dir: Path, pins: dict | None 
     return failed
 
 
+def docker_pull(images: list[str], env: dict, run_dir: Path) -> list[str]:
+    """Pulls each image Docker does not have yet, one at a time, before the run, so that a daemon that cannot reach
+    the registry is reported at once and not as a failed step. The images are named by their pinned digests
+    (workflow/conf/containers.config), so Docker checks each one as it pulls it. Returns the failures."""
+    import shutil
+    failed = []
+    with open(run_dir / "images.log", "a") as log:
+        if not shutil.which("docker", path=env.get("PATH")):
+            log.write("docker: command not found on this server\n")
+            return list(images)
+        for img in images:
+            r = subprocess.run(["docker", "image", "inspect", img], env=env, capture_output=True, text=True)
+            if r.returncode == 0:
+                log.write(f"{img}: already in Docker; not pulled\n")
+                continue
+            r = subprocess.run(["docker", "pull", img], env=env, capture_output=True, text=True)
+            log.write(f"pull {img}: exit {r.returncode}\n{r.stdout[-2000:]}{r.stderr[-2000:]}\n")
+            if r.returncode != 0:
+                failed.append(img)
+    return failed
+
+
 def _blobs_match(udocker_dir: Path, img: str) -> bool:
     import hashlib
     name, _, tag = img.rpartition(":")

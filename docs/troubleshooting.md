@@ -9,4 +9,8 @@
 - **A library is flagged** on the report's first page: it was counted; the flag says which check it missed.
 - **An image could not be pulled, or its digests differ** (udocker): see `run/images.log`. Images are pinned to the digests in
   `workflow/assets/containers.tsv`; a network problem is the usual cause of a failed pull.
+- **An image could not be pulled** (Docker): Docker downloads images through its own service, not through your
+  session, so a server that reaches the internet through a proxy needs the proxy set for that service too (an
+  administrator does it; Docker's documentation calls it the daemon proxy). Without it, set `engine: udocker`, which
+  runs as you and uses your proxy settings. Details in `run/images.log`.
 - **A step failed**: `quantseq-counts bug-report <outdir>` writes a bundle for a GitHub issue.

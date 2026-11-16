@@ -17,4 +17,6 @@ First release.
   mitochondrial ribosomal RNA (Ensembl reference), and warning flags with their reasons: fewer than 500,000 reads
   counted, fewer than 50% of trimmed reads aligned once, UMI spacer in fewer than 75% of reads (UMI mode) or in more
   than 5% (mode without UMIs). Flagged libraries are kept and counted.
+- Container images checked before the run starts, with Docker as with udocker, so that an image that cannot be
+  downloaded (for example from behind a proxy) stops the run at once with the reason.
 - `quantseq-counts test` (bundled public data), `update` (new versions installed beside the old), `bug-report`.

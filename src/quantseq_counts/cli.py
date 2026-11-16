@@ -212,13 +212,21 @@ def cmd_run(args, ask) -> int:
         _err(str(e)); return CHECK_FAILED
     pins = launch.load_pins(install)
     launch.write_containers(procs, run_dir, pins)
-    if s["engine"] == "udocker":
+    # udocker keeps its images in a folder the nodes share; Docker images live on each machine, so with SLURM the
+    # nodes pull their own
+    if s["engine"] == "udocker" or (s["engine"] == "docker" and s["executor"] == "local"):
         print("Checking the container images (pulled only when absent; the first time this can take a while)")
-        failed = launch.udocker_pull(sorted({c for _p, c in procs if c}), env, run_dir, pins)
+        images = sorted({c for _p, c in procs if c})
+        failed = (launch.udocker_pull(images, env, run_dir, pins) if s["engine"] == "udocker"
+                  else launch.docker_pull(images, env, run_dir))
         if failed:
             _err("These images could not be pulled or checked (see " + str(run_dir / "images.log") + "):")
             for f in failed:
                 _err("  " + f)
+            if s["engine"] == "docker":
+                _err("Docker downloads images through its own service, not through your session. If this server "
+                     "reaches the internet through a proxy, that service needs the proxy setting too (an "
+                     "administrator sets it). Or set engine: udocker, which runs as you and uses your proxy settings.")
             return CHECK_FAILED
     if args.foreground:
         rc = launch.run_foreground(argv, env, run_dir)
