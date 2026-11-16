@@ -64,7 +64,9 @@ def run_selftest(root: Path, engine: str, workdir: Path, cpus: int, memory: str,
         sfile = Path(workdir) / f"settings_{lib}.yaml"
         sfile.write_text(st.dump_settings(s))
         if _run(["run", "--settings", str(sfile), "--samples", str(samples), "--yes", "--foreground"]) != 0:
-            print(f"{lib}: the run failed (see {s['outdir']}/run/nextflow.log)")
+            log = Path(s["outdir"]) / "run" / "nextflow.log"
+            print(f"{lib}: the run failed (see {log})" if log.exists()
+                  else f"{lib}: the run did not start (the reason is above)")
             rc = 1
             continue
         got = Path(s["outdir"]) / "counts.tsv"

@@ -198,8 +198,9 @@ def test_docker_pulls_missing_images_one_at_a_time(tmp_path):
     failed = launch.docker_pull(["q.io/a@sha256:1", "c.io/b@sha256:2", "d.io/c@sha256:3"], env, rd)
     assert failed == ["c.io/b@sha256:2"]
     calls = log.read_text().splitlines()
-    assert "pull q.io/a@sha256:1" not in calls
-    assert "pull c.io/b@sha256:2" in calls and "pull d.io/c@sha256:3" in calls
+    assert "pull q.io/a@sha256:1" not in calls and "pull c.io/b@sha256:2" in calls
+    # stops at the first image it cannot download: on integra each pull timed out, 18 of them took 4.5 minutes
+    assert "pull d.io/c@sha256:3" not in calls
     assert "timeout" in (rd / "images.log").read_text()
 
 

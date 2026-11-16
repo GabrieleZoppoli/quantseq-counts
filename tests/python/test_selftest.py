@@ -72,3 +72,13 @@ def test_second_test_in_the_same_folder_uses_a_new_outdir(tmp_path):
     (tmp_path / "out_fwd_umi_2").mkdir()  # an interrupted run (no DONE) is resumed in place
     s3, _ = selftest.selftest_settings(root, "fwd_umi", "docker", tmp_path, 4, "14 GB")
     assert s3["outdir"] == str(tmp_path / "out_fwd_umi_2")
+
+
+def test_run_that_did_not_start_is_not_sent_to_a_missing_log(tmp_path, monkeypatch, capsys):
+    # integra, 16 Nov 2026: the images could not be pulled, the run stopped before Nextflow, and the test still said
+    # "see .../nextflow.log", a file that did not exist
+    from quantseq_counts import cli
+    monkeypatch.setattr(selftest, "_run", lambda argv, ask=None: 2)
+    rc = cli.main(["test", "--engine", "docker", "--library", "fwd_umi", "--workdir", str(tmp_path)])
+    out = capsys.readouterr().out
+    assert rc == 1 and "nextflow.log" not in out and "did not start" in out

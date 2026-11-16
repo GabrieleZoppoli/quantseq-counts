@@ -202,7 +202,8 @@ def udocker_pull(images: list[str], env: dict, run_dir: Path, pins: dict | None 
 def docker_pull(images: list[str], env: dict, run_dir: Path) -> list[str]:
     """Pulls each image Docker does not have yet, one at a time, before the run, so that a daemon that cannot reach
     the registry is reported at once and not as a failed step. The images are named by their pinned digests
-    (workflow/conf/containers.config), so Docker checks each one as it pulls it. Returns the failures."""
+    (workflow/conf/containers.config), so Docker checks each one as it pulls it. Stops at the first failure,
+    which it returns."""
     import shutil
     failed = []
     with open(run_dir / "images.log", "a") as log:
@@ -217,7 +218,10 @@ def docker_pull(images: list[str], env: dict, run_dir: Path) -> list[str]:
             r = subprocess.run(["docker", "pull", img], env=env, capture_output=True, text=True)
             log.write(f"pull {img}: exit {r.returncode}\n{r.stdout[-2000:]}{r.stderr[-2000:]}\n")
             if r.returncode != 0:
+                # a registry Docker cannot reach fails every pull after a timeout: stop at the first one
                 failed.append(img)
+                log.write("stopped at the first image that could not be pulled\n")
+                break
     return failed
 
 
