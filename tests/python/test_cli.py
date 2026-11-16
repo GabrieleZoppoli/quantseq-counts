@@ -1,6 +1,7 @@
 import gzip
 import os
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -248,3 +249,24 @@ def test_docker_with_slurm_does_not_pull_on_this_machine(study, monkeypatch):
     monkeypatch.setattr(cli.launch, "docker_pull", lambda *a: pytest.fail("the nodes pull, not this machine"))
     monkeypatch.setattr(cli.launch, "start", lambda *a: 1)
     assert run(study) == 0
+
+
+def test_image_check_line_is_shown_before_the_pull_starts(study, monkeypatch):
+    # when the output goes to a pipe or a file, the line must not wait behind the pull and its error messages
+    events = []
+
+    class Out:
+        def write(self, t):
+            if t.strip():
+                events.append("write")
+        def flush(self):
+            events.append("flush")
+
+    s = yaml.safe_load((study / "settings.yaml").read_text()); s["engine"] = "docker"
+    (study / "settings.yaml").write_text(yaml.safe_dump(s))
+    monkeypatch.setattr(cli.launch, "docker_pull", lambda images, env, rd: events.append("pull") or [])
+    monkeypatch.setattr(cli.launch, "start", lambda *a: 1)
+    monkeypatch.setattr(sys, "stdout", Out())
+    run(study)
+    i = events.index("pull")
+    assert "flush" in events[:i] and events[:i].index("flush") > events[:i].index("write")

@@ -215,7 +215,7 @@ def cmd_run(args, ask) -> int:
     # udocker keeps its images in a folder the nodes share; Docker images live on each machine, so with SLURM the
     # nodes pull their own
     if s["engine"] == "udocker" or (s["engine"] == "docker" and s["executor"] == "local"):
-        print("Checking the container images (pulled only when absent; the first time this can take a while)")
+        print("Checking the container images (pulled only when absent; the first time this can take a while)", flush=True)
         images = sorted({c for _p, c in procs if c})
         failed = (launch.udocker_pull(images, env, run_dir, pins) if s["engine"] == "udocker"
                   else launch.docker_pull(images, env, run_dir))
