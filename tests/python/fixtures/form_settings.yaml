@@ -3,7 +3,7 @@
 # ---- basic settings ----
 
 # Version of quantseq-counts that wrote these settings; a run refuses another version unless told to accept it.
-package_version: '0.1.0'
+package_version: '1.0.0'
 
 # Short name of this run, used in the report (letters, digits, - and _).
 run_name: 'pilot_2026'

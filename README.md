@@ -4,8 +4,6 @@ Gene counts, a quality report and a full record of the run from Lexogen QuantSeq
 without UMIs, on a shared server without administrator rights. The same FASTQ files give the same counts table,
 byte for byte, on every rerun, whatever the day, the server load or the number of threads.
 
-**Status: under development. There is no release yet; do not use it for analyses.**
-
 ## What it does
 
 For each library: a FASTQ check and FastQC; UMI extraction (UMI mode); adapter, poly(A) and quality trimming; STAR
@@ -57,6 +55,7 @@ These are counts from a 3' library: one read per molecule near the 3' end. Do no
 - [Settings](docs/settings.md): every setting, its default and what it does.
 - [Installation](docs/install.md), [outputs](docs/outputs.md), [when something goes wrong](docs/troubleshooting.md).
 - [Trimming in the two library modes](docs/no_umi_trimming.md).
+- [Design](docs/design.md): what it leaves out, why reruns are identical, the release gate; [changes](CHANGELOG.md).
 
 ## Help
 

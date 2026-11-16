@@ -15,4 +15,8 @@ see a change in the reads kept.
   with STAR at 8 and 5 threads, the sorts at 6 and 3 and featureCounts at 6 and 3. The control differed in 9 of 12
   objects: with the name-then-position sort off, the alignments' order and the reads kept followed the thread count,
   and the counts table differed in 2 genes by 1 count each. STAR's records were the same at both thread counts, so
-  the package leaves STAR's thread count free (`star_threads` empty by default). Run B (another day) is to come.
+  the package leaves STAR's thread count free (`star_threads` empty by default). Superseded by `1.0.0_public.tsv`, which includes run B.
+- `1.0.0_public.tsv` (15 and 16 November 2026, Linux server, udocker; code of commit 3daa97f, the release apart from
+  its version number and documents): the same public data and reference as `0.1.0-dev_public.tsv`. Runs A, C, D1 and
+  D2 on 15 November (14:15-17:24 UTC), run B on 16 November (07:18-08:06 UTC). A, B and C identical in all 12
+  objects; the control differed in 9 of 12 (the trimmed reads were the same). Gate passed.

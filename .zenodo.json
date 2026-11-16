@@ -1,0 +1,8 @@
+{
+  "title": "quantseq-counts",
+  "upload_type": "software",
+  "description": "Gene counts, a quality report and a full record of the run from Lexogen QuantSeq 3' mRNA-Seq FWD libraries, with or without UMIs, on a shared server without administrator rights. The same FASTQ files give the same counts table, byte for byte, on every rerun.",
+  "creators": [{"name": "Zoppoli, Gabriele"}],
+  "license": "MIT",
+  "keywords": ["QuantSeq", "3' mRNA-Seq", "RNA-seq", "UMI", "Nextflow", "reproducibility", "gene counts"]
+}
