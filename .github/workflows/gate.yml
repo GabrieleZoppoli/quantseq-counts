@@ -36,7 +36,7 @@ jobs:
           PY
       - name: Runs A and C, compared object by object
         run: bash "$RUNNER_TEMP/qc/tools/release_gate.sh" --install "$RUNNER_TEMP/qc" --settings "$RUNNER_TEMP/base.yaml" --out "$RUNNER_TEMP/g" --runs A,C
-      - name: Keep the gate table
+      - name: Keep the gate table and each run's output
         if: always()
         uses: actions/upload-artifact@v4
-        with: { name: 'gate-${{ matrix.engine }}-${{ matrix.library }}', path: '${{ runner.temp }}/g/*.tsv' }
+        with: { name: 'gate-${{ matrix.engine }}-${{ matrix.library }}', path: "${{ runner.temp }}/g/*.tsv\n${{ runner.temp }}/g/*/run.out" }

@@ -5,6 +5,7 @@ authors:
   - family-names: "Zoppoli"
     given-names: "Gabriele"
 license: MIT
+doi: "10.5281/zenodo.24380084"
 repository-code: "https://github.com/GabrieleZoppoli/quantseq-counts"
 version: "1.0.0"
 date-released: "2026-11-19"

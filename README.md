@@ -63,6 +63,12 @@ Open an issue on GitHub with the version and the bundle written by `quantseq-cou
 (it replaces sample names, paths and host names; read it before attaching it). Do not paste anything about your
 samples.
 
+## Citing
+
+quantseq-counts is archived on Zenodo: [10.5281/zenodo.24380084](https://doi.org/10.5281/zenodo.24380084)
+(all versions; version 1.0.0 is [10.5281/zenodo.24380085](https://doi.org/10.5281/zenodo.24380085)). Cite the version
+you ran (`package_version` in `run/settings.yaml` of the output folder); `CITATION.cff` gives the reference.
+
 ## Licence and credits
 
 MIT (`LICENSE`). The process modules in `workflow/modules/nf-core/` come from nf-core/rnaseq (commit e7ca462, MIT,
